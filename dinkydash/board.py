@@ -130,7 +130,7 @@ def build_view(config, payload, today, now=None):
         # still needs to know which clock, because "12:00 pm" is wider than
         # "12:00" and the agenda's time column is a fixed width.
         "clock": clock_of(config),
-        "date_display": today.strftime("%A, %-d %B"),
+        "date_display": today.strftime("%A, %#d %B"),
         "chores": chores,
         "countdowns": countdowns,
         "events": [],
