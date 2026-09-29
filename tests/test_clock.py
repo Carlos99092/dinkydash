@@ -277,12 +277,11 @@ class TestTheDashboardsOwnChrome:
         assert 'setAttribute("data-clock"' in swap
         assert 'setAttribute("data-theme"' in swap
 
-    def test_the_time_column_is_a_token_with_both_widths(self):
+    def test_the_visual_calendar_keeps_a_fixed_hour_gutter(self):
         css = BOARD.read_text()
-        assert "--time-column:" in css
-        assert '[data-clock="12h"] { --time-column:' in css
-        # The rule reads the token rather than either literal width.
-        assert "width: var(--time-column);" in css
+        assert "--gutter: 5rem" in css
+        assert "grid-template-columns: var(--gutter) repeat(7" in css
+        assert "left: var(--gutter)" in css
 
 
 class TestTheCadenceLine:

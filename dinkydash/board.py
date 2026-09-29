@@ -34,6 +34,14 @@ MAX_COUNTDOWNS = 3
 CALENDAR_START_HOUR = 8
 CALENDAR_END_HOUR = 18
 CALENDAR_COLOURS = ("sage", "lilac", "apricot", "sky", "butter", "rose")
+SPANISH_MONTHS = (
+    "enero", "febrero", "marzo", "abril", "mayo", "junio",
+    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+)
+SPANISH_WEEKDAYS = ("lun", "mar", "mié", "jue", "vie", "sáb", "dom")
+SPANISH_LONG_WEEKDAYS = (
+    "lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo",
+)
 
 
 def _week_start(day):
@@ -92,8 +100,9 @@ def week_view(events, today, clock):
             "date": day,
             "iso": day.isoformat(),
             "number": day.strftime("%d"),
-            "name": day.strftime("%a").rstrip(".").lower(),
-            "long_name": day.strftime("%A, %#d %B"),
+            "name": SPANISH_WEEKDAYS[offset],
+            "long_name": f"{SPANISH_LONG_WEEKDAYS[offset]}, {day.day} de "
+                         f"{SPANISH_MONTHS[day.month - 1]}",
             "today": day == today,
             "events": [calendar_event(event, clock) for event in events_on(events, day)],
         })
@@ -238,7 +247,8 @@ def build_view(config, payload, today, now=None):
     first = _week_start(today)
     reference = first + timedelta(days=3)
     view["week_days"] = week_view(fetched, today, clock)
-    view["month_display"] = reference.strftime("%B %Y")
+    month = SPANISH_MONTHS[reference.month - 1]
+    view["month_display"] = f"{month.capitalize()} {reference.year}"
     view["week_number"] = first.isocalendar().week
     # Rewritten before anything reads a time off them, so the computed headline
     # below is on the family's clock too.

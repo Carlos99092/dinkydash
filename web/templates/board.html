@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="{{ view.theme }}" data-clock="{{ view.clock }}">
+<html lang="es" data-theme="{{ view.theme }}" data-clock="{{ view.clock }}">
 <head>
     <meta charset="utf-8">
     <title>{{ view.family_name or "DinkyDash" }}</title>
@@ -16,57 +16,92 @@
     {% include "_fonts.html" %}
     <style>
         :root {
-            --bg: #fdfdfd; --text: #141414; --muted: #646464;
-            --faint: rgba(100,100,100,.45); --line: rgba(20,20,20,.065);
-            --sage: #cadcd4; --lilac: #d4add8; --apricot: #f2c9ae;
-            --sky: #bfd8e8; --butter: #eee0a8; --rose: #e8bdc4;
-            --gutter: 5rem; --right: 2rem;
+            --background: #fdfdfd;
+            --foreground: #141414;
+            --muted-foreground: #646464;
+            --muted-faint: rgba(100, 100, 100, 0.45);
+            --grid-line: rgba(20, 20, 20, 0.06);
+            --tick: rgba(20, 20, 20, 0.4);
+            --sage: #cadcd4;
+            --lilac: #cda3d3;
+            --apricot: #f2c9ae;
+            --sky: #bfd8e8;
+            --butter: #eee0a8;
+            --rose: #e8bdc4;
+            --font-sans: 'Nunito', 'Inter', system-ui, sans-serif;
+            --font-display: 'Nunito', 'Space Grotesk', system-ui, sans-serif;
+            --gutter: 5rem;
+            --right: 2rem;
         }
         [data-theme="dark"] {
-            --bg:#171717; --text:#f5f3f0; --muted:#aaa39d; --faint:rgba(220,215,210,.42);
-            --line:rgba(255,255,255,.09); --sage:#49665a; --lilac:#704e75;
-            --apricot:#795746; --sky:#405f70; --butter:#71673d; --rose:#714c54;
+            --background: #171717; --foreground: #f5f3f0;
+            --muted-foreground: #aaa39d; --muted-faint: rgba(220,215,210,.42);
+            --grid-line: rgba(255,255,255,.09); --tick: rgba(255,255,255,.4);
+            --sage:#49665a; --lilac:#704e75; --apricot:#795746;
+            --sky:#405f70; --butter:#71673d; --rose:#714c54;
         }
-        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-        html{font-size:clamp(10px,2.05vh,20px)}
-        body{height:100vh;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Nunito',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
-        .calendar{height:100vh;display:flex;flex-direction:column;padding-bottom:1rem}
-        .calendar-head{display:flex;align-items:center;gap:1rem;padding:1.25rem 2rem;flex:none}
-        .month,.week{font-size:1.65rem;font-weight:800;letter-spacing:-.025em}.slash{font-size:1.8rem;font-weight:300;color:var(--muted)}.week{font-size:1.35rem}
-        .week-head,.week-body{display:grid;grid-template-columns:var(--gutter) repeat(7,minmax(0,1fr));padding-right:var(--right)}
-        .day-head{text-align:center;padding-bottom:.5rem}.day-num{display:block;font-size:2.8rem;line-height:1;font-weight:800;letter-spacing:-.04em;font-variant-numeric:tabular-nums;color:var(--faint)}
-        .day-name{display:block;margin-top:.2rem;font-size:.8rem;text-transform:lowercase;color:var(--muted)}.day-head.today .day-num,.day-head.today .day-name{color:var(--text)}.day-head.today .day-name{font-weight:800}
-        .tick{display:block;width:1px;height:.7rem;margin:.75rem auto 0;background:var(--muted)}
-        .week-body{position:relative;flex:1;min-height:0;padding-top:.75rem}.gutter,.day-column{position:relative;min-width:0}.day-column{border-left:1px solid transparent}
-        .hour{position:absolute;right:.75rem;transform:translateY(-50%);font-size:.8rem;font-variant-numeric:tabular-nums;color:var(--muted)}.hour.first{transform:none}
-        .grid-lines{position:absolute;z-index:0;top:.75rem;bottom:0;left:var(--gutter);right:var(--right);pointer-events:none}.grid-line{position:absolute;left:0;right:0;border-top:1px solid var(--line)}
-        .event{position:absolute;z-index:1;left:.22rem;right:.22rem;min-height:1.65rem;display:flex;flex-direction:column;gap:.12rem;overflow:hidden;border-radius:.62rem;padding:.45rem .55rem;color:#171717}
-        [data-theme="dark"] .event{color:#fff}.event.sage{background:var(--sage)}.event.lilac{background:var(--lilac)}.event.apricot{background:var(--apricot)}.event.sky{background:var(--sky)}.event.butter{background:var(--butter)}.event.rose{background:var(--rose)}
-        .event.short{justify-content:center;padding-top:.22rem;padding-bottom:.22rem}.event-title{font-size:.78rem;font-weight:700;line-height:1.2}.event.short .event-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .event-time{font-size:.7rem;font-weight:700;line-height:1;opacity:.66;font-variant-numeric:tabular-nums}.event-place{font-size:.65rem;opacity:.58;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .banner,.offline{display:flex;align-items:center;gap:.7rem;background:#fdf6e7;color:#a6530b;padding:.55rem 2rem;font-size:.78rem;font-weight:700;flex:none}.offline[hidden]{display:none}.offline::before{content:"";width:.5rem;height:.5rem;border-radius:50%;background:currentColor}
-        .note{position:absolute;right:2rem;top:1.3rem;max-width:34%;font-size:.72rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.note-label{font-weight:800;display:inline;margin-right:.35rem}
-        .waiting{height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.2rem;text-align:center;padding:2rem}.family{font-size:.85rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#a75a35}.waiting-head{font-size:2.25rem;font-weight:800}.waiting-sub{max-width:34rem;color:var(--muted);line-height:1.5}.bar{width:20rem;height:.4rem;border-radius:2rem;background:var(--line);overflow:hidden}.bar span{display:block;width:40%;height:100%;background:var(--sage)}
-        @media(max-width:700px){:root{--gutter:3.6rem;--right:.5rem}.calendar-head{padding-left:1rem}.month{font-size:1.25rem}.week{font-size:1rem}.day-num{font-size:2rem}.event{padding:.3rem}.event-time,.event-place{display:none}}
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            height: 100%; background: var(--background); color: var(--foreground);
+            font-family: var(--font-sans); -webkit-font-smoothing: antialiased;
+            overflow: hidden;
+        }
+        body { display: flex; flex-direction: column; }
+        .calendar { display: flex; flex-direction: column; flex: 1; min-height: 0; padding-bottom: 1rem; }
+        .calendar-head { display: flex; align-items: center; gap: 1rem; padding: 1.25rem 2rem; flex: none; }
+        .month { font-family: var(--font-display); font-size: 1.875rem; font-weight: 600; letter-spacing: -.025em; }
+        .slash { font-family: var(--font-display); font-size: 1.875rem; font-weight: 300; color: var(--muted-foreground); }
+        .week { font-family: var(--font-display); font-size: 1.5rem; font-weight: 600; }
+        .week-head, .week-body { display: grid; grid-template-columns: var(--gutter) repeat(7, minmax(0, 1fr)); padding-right: var(--right); }
+        .day-head { display: flex; flex-direction: column; align-items: center; gap: .25rem; padding-bottom: .5rem; }
+        .day-num { font-family: var(--font-display); font-size: 3rem; line-height: 1; font-weight: 600; letter-spacing: -.025em; font-variant-numeric: tabular-nums; color: var(--muted-faint); }
+        .day-name { font-size: .875rem; text-transform: lowercase; color: var(--muted-foreground); }
+        .day-head.today .day-num, .day-head.today .day-name { color: var(--foreground); }
+        .day-head.today .day-name { font-weight: 500; }
+        .tick { margin-top: .75rem; width: 1px; height: .75rem; background: var(--tick); }
+        .week-body { position: relative; flex: 1; min-height: 0; padding-top: .75rem; }
+        .gutter, .day-column { position: relative; min-width: 0; }
+        .hour { position: absolute; right: .75rem; transform: translateY(-50%); white-space: nowrap; font-size: .875rem; font-variant-numeric: tabular-nums; color: var(--muted-foreground); }
+        .hour.first { transform: none; }
+        .grid-lines { position: absolute; top: .75rem; bottom: 0; left: var(--gutter); right: var(--right); pointer-events: none; }
+        .grid-line { position: absolute; left: 0; right: 0; border-top: 1px solid var(--grid-line); }
+        .event { position: absolute; z-index: 1; left: .25rem; right: .25rem; min-height: 1.5rem; display: flex; flex-direction: column; gap: .25rem; overflow: hidden; border-radius: .625rem; padding: .5rem .625rem; color: #141414; }
+        [data-theme="dark"] .event { color: #fff; }
+        .event.sage { background: var(--sage); } .event.lilac { background: var(--lilac); }
+        .event.apricot { background: var(--apricot); } .event.sky { background: var(--sky); }
+        .event.butter { background: var(--butter); } .event.rose { background: var(--rose); }
+        .event.short { justify-content: center; gap: .125rem; padding-top: .25rem; padding-bottom: .25rem; }
+        .event-title { font-size: .875rem; font-weight: 500; line-height: 1.25; }
+        .event.short .event-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .event-time { font-size: .875rem; font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; opacity: .7; }
+        .event-place { font-size: .75rem; opacity: .55; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .banner, .offline { display: flex; align-items: center; gap: .7rem; background: #fdf6e7; color: #a6530b; padding: .55rem 2rem; font-size: .78rem; font-weight: 700; flex: none; }
+        .offline[hidden] { display: none; } .offline::before { content: ""; width: .5rem; height: .5rem; border-radius: 50%; background: currentColor; }
+        .note { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+        .note-label { font-weight: 800; display: inline; margin-right: .35rem; }
+        .waiting { height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.2rem; text-align: center; padding: 2rem; }
+        .family { font-size: .85rem; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: #a75a35; }
+        .waiting-head { font-size: 2.25rem; font-weight: 800; } .waiting-sub { max-width: 34rem; color: var(--muted-foreground); line-height: 1.5; }
+        .bar { width: 20rem; height: .4rem; border-radius: 2rem; background: var(--grid-line); overflow: hidden; } .bar span { display: block; width: 40%; height: 100%; background: var(--sage); }
     </style>
 </head>
 <body data-reload="{{ view.reload_seconds }}" data-version="{{ board_version() }}"{% if view.state in ('ready', 'stale') %} data-today="{{ view.today }}"{% endif %} data-timezone="{{ view.timezone }}">
 {% if view.state == 'ended' %}
-<div class="waiting"><div class="family">DinkyDash</div><div class="waiting-head">Your trial or subscription has ended</div><div class="waiting-sub">Dashboard updates are paused. Open your settings on a phone or computer to manage your account.</div></div>
+<div class="waiting"><div class="family">DinkyDash</div><div class="waiting-head">Tu prueba o suscripción ha terminado</div><div class="waiting-sub">Las actualizaciones del panel están pausadas. Abre los ajustes desde un móvil u ordenador para gestionar tu cuenta.</div></div>
 {% elif view.state == 'waiting' and view.set_up %}
-<div class="waiting"><div class="family">DinkyDash</div><div class="waiting-head">Writing {{ view.family_name or "your" }}{{ "'s" if view.family_name else "" }} first dashboard&hellip;</div><div class="bar"><span></span></div><div class="waiting-sub">The next run writes it, usually within a few minutes, and this page fills itself in. To have it now, open the settings page and press &ldquo;Write first daily message&rdquo;.</div></div>
+<div class="waiting"><div class="family">DinkyDash</div><div class="waiting-head">Preparando el primer calendario de {{ view.family_name or "tu familia" }}&hellip;</div><div class="bar"><span></span></div><div class="waiting-sub">La próxima actualización lo preparará, normalmente en unos minutos, y esta página se completará automáticamente.</div></div>
 {% elif view.state == 'waiting' %}
-<div class="waiting"><div class="family">DinkyDash</div><div class="waiting-head">Nearly there</div><div class="waiting-sub">Finish the set-up steps on the settings page, and this screen fills itself in as soon as the first dashboard is written.</div></div>
+<div class="waiting"><div class="family">DinkyDash</div><div class="waiting-head">Ya casi está</div><div class="waiting-sub">Termina la configuración y esta pantalla se completará automáticamente en cuanto esté listo el primer calendario.</div></div>
 {% else %}
-{% if view.state == 'frozen' %}<div class="banner">Your trial or subscription has ended. Showing the last saved dashboard; its dates and turns are paused.</div>
-{% elif view.overdue %}<div class="banner">{% if view.note %}Today&rsquo;s note hasn&rsquo;t arrived, so you&rsquo;re seeing an older one below. Everything else is today&rsquo;s.{% else %}Today&rsquo;s note hasn&rsquo;t arrived. Everything else is today&rsquo;s.{% endif %}</div>{% endif %}
+{% if view.state == 'frozen' %}<div class="banner">Tu prueba o suscripción ha terminado. Se muestra el último calendario guardado.</div>
+{% elif view.overdue %}<div class="banner">La nota de hoy todavía no ha llegado. El calendario sí está actualizado.</div>{% endif %}
 <main class="calendar">
-    <header class="calendar-head"><h1 class="month">{{ view.month_display }}</h1><span class="slash" aria-hidden="true">/</span><p class="week">Week {{ view.week_number }}</p>{% if view.note %}<div class="note{{ ' is-stale' if view.stale }}">{% if view.stale %}<span class="note-label">{% if view.stale_days == 1 %}Yesterday&rsquo;s note{% else %}Older note{% endif %}</span>{% endif %}{{ view.note }}</div>{% endif %}</header>
+    <header class="calendar-head"><h1 class="month">{{ view.month_display }}</h1><span class="slash" aria-hidden="true">/</span><p class="week">Semana {{ view.week_number }}</p>{% if view.note %}<div class="note{{ ' is-stale' if view.stale }}">{% if view.stale %}<span class="note-label">{% if view.stale_days == 1 %}Nota de ayer{% else %}Nota anterior{% endif %}</span>{% endif %}{{ view.note }}</div>{% endif %}</header>
     <div class="week-head"><div aria-hidden="true"></div>{% for day in view.week_days %}<div class="day-head{{ ' today' if day.today }}"><span class="day-num">{{ day.number }}</span><span class="day-name">{{ day.name }}</span><span class="tick" aria-hidden="true"></span></div>{% endfor %}</div>
     <div class="week-body">
         <div class="gutter">{% for hour in view.calendar_hours %}<span class="hour{{ ' first' if loop.first }}" style="top:{{ loop.index0 * 10 }}%">{{ '%02d:00'|format(hour) }}</span>{% endfor %}</div>
         <div class="grid-lines" aria-hidden="true">{% for hour in view.calendar_hours %}<div class="grid-line" style="top:{{ loop.index0 * 10 }}%"></div>{% endfor %}</div>
-        {% for day in view.week_days %}<section class="day-column" aria-label="{{ day.long_name }}">{% for event in day.events %}<article class="event {{ event.colour }}{{ ' short' if event.short }}" style="top:calc({{ event.top }}% + 2px);height:calc({{ event.height }}% - 4px)" title="{{ event.title }}"><h2 class="event-title">{{ event.title }}</h2><p class="event-time">{% if event.all_day %}All day{% else %}{{ event.time }}{% if event.end_time %} &ndash; {{ event.end_time }}{% endif %}{% endif %}</p>{% if event.location %}<p class="event-place">{{ event.location }}</p>{% endif %}</article>{% endfor %}</section>{% endfor %}
+        {% for day in view.week_days %}<section class="day-column" aria-label="{{ day.long_name }}">{% for event in day.events %}<article class="event {{ event.colour }}{{ ' short' if event.short }}" style="top:calc({{ event.top }}% + 2px);height:calc({{ event.height }}% - 4px)" title="{{ event.title }}"><h2 class="event-title">{{ event.title }}</h2><p class="event-time">{% if event.all_day %}Todo el día{% else %}{{ event.time }}{% if event.end_time %} &ndash; {{ event.end_time }}{% endif %}{% endif %}</p>{% if event.location %}<p class="event-place">{{ event.location }}</p>{% endif %}</article>{% endfor %}</section>{% endfor %}
     </div>
 </main>
 {% endif %}
@@ -90,39 +125,9 @@
 (function () {
     var root = document.documentElement;
 
-    function naturalHeight() {
-        var body = document.body;   // read each time: a refresh replaces it
-        var h = body.style.height, o = body.style.overflow;
-        body.style.height = "auto";
-        body.style.overflow = "visible";
-        var n = body.scrollHeight;
-        body.style.height = h;
-        body.style.overflow = o;
-        return n;
-    }
-
-    function fit() {
-        // Let a phone viewer enlarge the dashboard without shrinking it back.
-        if (window.visualViewport && window.visualViewport.scale > 1) return;
-        var room = window.innerHeight;
-        var lo = 9, hi = Math.min(26, room / 24);   // same ceiling as the clamp
-        root.style.fontSize = hi + "px";
-        if (naturalHeight() > room) {
-            for (var i = 0; i < 14; i++) {          // ~0.001px, imperceptible cost
-                var mid = (lo + hi) / 2;
-                root.style.fontSize = mid + "px";
-                if (naturalHeight() > room) { hi = mid; } else { lo = mid; }
-            }
-            root.style.fontSize = lo + "px";
-        }
-    }
-
-    fit();
-    window.addEventListener("resize", fit);
-    /* Nunito arrives after the first paint and sets taller lines than the
-       fallback, so a size measured before it lands can overflow once it swaps
-       in — measured at 557px of content in a 480px panel. Re-fit when it does. */
-    if (document.fonts && document.fonts.ready) { document.fonts.ready.then(fit); }
+    // The supplied calendar design uses the browser's normal 16px root size.
+    // Do not auto-fit the whole document: that looked like a permanent zoom-out.
+    function fit() {}
 
     /* ---- the refresh ---------------------------------------------------- */
 
@@ -231,9 +236,9 @@
         var zone = body.getAttribute("data-timezone") || undefined;
         var today = body.getAttribute("data-today");
         var detail = (today && today !== dateIn(zone))
-            ? "Showing " + weekday(today) + "\u2019s dashboard"
-            : "Last updated " + clock(fetchedAt, zone);
-        badge.textContent = "Reconnecting \u00b7 " + detail;
+            ? "Mostrando el calendario del " + weekday(today)
+            : "Última actualización: " + clock(fetchedAt, zone);
+        badge.textContent = "Reconectando \u00b7 " + detail;
         badge.hidden = false;
         fit();   // it takes a line, and the dashboard above it has to give one up
     }
@@ -257,7 +262,7 @@
         return part("year") + "-" + part("month") + "-" + part("day");
     }
     function weekday(iso) {
-        return new Intl.DateTimeFormat("en-GB", {weekday: "long", timeZone: "UTC"}).format(new Date(iso + "T00:00:00Z"));
+        return new Intl.DateTimeFormat("es-ES", {weekday: "long", timeZone: "UTC"}).format(new Date(iso + "T00:00:00Z"));
     }
 
     later(reloadSeconds());

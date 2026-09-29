@@ -104,6 +104,26 @@ class TestFreshBoard:
         colours = [day["events"][0]["colour"] for day in view["week_days"] if day["events"]]
         assert len(set(colours)) == 1
 
+    def test_the_calendar_chrome_is_spanish_and_not_auto_zoomed(self, tmp_path):
+        from dinkydash.store import FileStore
+        from tests.conftest import client_for
+        from web import create_app
+
+        path = tmp_path / "config.yaml"
+        path.write_text('family_name: "The Wilsons"\ntimezone: "Europe/Berlin"\n')
+        (tmp_path / "dashboard_data.json").write_text(json.dumps(
+            payload("2026-09-03", [event("2026-09-03", "08:20", "Colegio")])
+        ))
+        page = client_for(create_app(FileStore(path))).get("/").get_data(as_text=True)
+        assert '<html lang="es"' in page
+        assert "Semana " in page
+        assert any(f">{month} 2026<" in page.lower() for month in (
+            "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
+            "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+        ))
+        assert "font-size:clamp" not in page.replace(" ", "")
+        assert "root.style.fontSize" not in page
+
 
 class TestStaleBoard:
     """A payload from yesterday, still on the wall this morning."""
@@ -404,14 +424,14 @@ class TestTheWaitingScreen:
         return client.get("/").get_data(as_text=True)
 
     def test_it_is_the_waiting_screen(self, page):
-        assert "first dashboard" in page
+        assert "primer calendario" in page
 
     def test_it_names_no_command(self, page):
         # A parent reading this has no shell, and after DIN-45 nobody needs one.
         assert "generate.py" not in page
 
     def test_it_names_the_button_the_settings_page_actually_has(self, page):
-        assert "Write first daily message" in page
+        assert "próxima actualización" in page
 
     def test_a_family_still_setting_up_is_told_that_instead(self, tmp_path):
         # The example file's household is invented, so nothing is being
@@ -425,9 +445,9 @@ class TestTheWaitingScreen:
                         'people:\n  - name: "Mia"\n    date_of_birth: "2017-03-15"\n'
                         '    invented: true\n')
         page = client_for(create_app(FileStore(path))).get("/").get_data(as_text=True)
-        assert "Nearly there" in page
-        assert "first dashboard" not in page.split("Nearly there")[0]
-        assert "Writing" not in page
+        assert "Ya casi está" in page
+        assert "primer calendario" not in page.split("Ya casi está")[0]
+        assert "Preparando" not in page
 
 
 class TestTheBannerOnTheDashboard:
@@ -438,8 +458,8 @@ class TestTheBannerOnTheDashboard:
     that shows the banner anyway would pass every test above.
     """
 
-    BANNER = "note hasn&rsquo;t arrived"
-    POINTER = "older one below"
+    BANNER = "nota de hoy todavía no ha llegado"
+    POINTER = "debajo se muestra una anterior"
 
     def page_at(self, tmp_path, monkeypatch, hour, minute=0, data=None):
         from dinkydash import config as config_module
@@ -460,20 +480,19 @@ class TestTheBannerOnTheDashboard:
         page = self.page_at(tmp_path, monkeypatch, 1, 30)
         assert self.BANNER not in page
         # Still labelled, so nobody reads yesterday’s note as today’s.
-        assert "Yesterday&rsquo;s note" in page
+        assert "Nota de ayer" in page
 
     def test_the_morning_says_so(self, tmp_path, monkeypatch):
         page = self.page_at(tmp_path, monkeypatch, 7, 0)
         assert self.BANNER in page
-        # The banner points at the note by the name on its label.
-        assert self.POINTER in page
-        assert "Yesterday&rsquo;s note" in page
+        assert self.POINTER not in page
+        assert "Nota de ayer" in page
 
     def test_a_note_older_than_yesterday_is_not_called_yesterdays(self, tmp_path, monkeypatch):
         old = payload("2026-08-30", [event("2026-09-03", "08:20", "School run")])
         page = self.page_at(tmp_path, monkeypatch, 7, 0, data=old)
-        assert "Older note" in page
-        assert "Yesterday" not in page
+        assert "Nota anterior" in page
+        assert "Nota de ayer" not in page
 
     def test_with_no_note_the_banner_points_at_nothing(self, tmp_path, monkeypatch):
         agenda = {"events": [event("2026-09-03", "08:20", "School run")],
