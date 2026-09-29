@@ -48,3 +48,14 @@ def test_no_payload_shows_the_calendar_connection_state():
     view = build_view(CONFIG, None, TODAY)
     assert view["state"] == "waiting"
     assert view["week_days"]
+
+
+def test_can_build_the_previous_or_next_week_without_moving_today():
+    displayed = date(2026, 9, 10)
+    view = build_view(CONFIG, {"events": []}, TODAY, displayed_day=displayed)
+    assert view["week_number"] == 37
+    assert view["previous_week"] == "2026-08-31"
+    assert view["next_week"] == "2026-09-14"
+    assert view["current_week"] == "2026-08-31"
+    assert view["is_current_week"] is False
+    assert not any(day["today"] for day in view["week_days"])

@@ -66,9 +66,10 @@ def calendar_event(event, clock):
     return shown
 
 
-def week_view(events, today, clock):
+def week_view(events, displayed_day, clock, actual_today=None):
     """Seven Monday-to-Sunday columns, including empty days."""
-    first = _week_start(today)
+    first = _week_start(displayed_day)
+    actual_today = actual_today or displayed_day
     days = []
     for offset in range(7):
         day = first + timedelta(days=offset)
@@ -79,7 +80,7 @@ def week_view(events, today, clock):
             "name": SPANISH_WEEKDAYS[offset],
             "long_name": f"{SPANISH_LONG_WEEKDAYS[offset]}, {day.day} de "
                          f"{SPANISH_MONTHS[day.month - 1]}",
-            "today": day == today,
+            "today": day == actual_today,
             "events": [calendar_event(event, clock) for event in events_on(events, day)],
         })
     return days
@@ -123,12 +124,13 @@ def reload_seconds(config):
     return min(MAX_RELOAD_SECONDS, int(refresh_interval(config).total_seconds()))
 
 
-def build_view(config, payload, today, now=None):
+def build_view(config, payload, today, now=None, displayed_day=None):
     """Build the calendar-only view model."""
     theme = config.get("theme", "light")
     theme = theme if theme in ("light", "dark") else "light"
     clock = clock_of(config)
-    first = _week_start(today)
+    displayed_day = displayed_day or today
+    first = _week_start(displayed_day)
     reference = first + timedelta(days=3)
     fetched = (payload or {}).get("events") or []
     month = SPANISH_MONTHS[reference.month - 1]
@@ -141,10 +143,14 @@ def build_view(config, payload, today, now=None):
         "reload_seconds": reload_seconds(config) if payload is not None else WAITING_RELOAD_SECONDS,
         "today": today.isoformat(),
         "timezone": config.get("timezone") or "UTC",
-        "week_days": week_view(fetched, today, clock),
+        "week_days": week_view(fetched, displayed_day, clock, actual_today=today),
         "calendar_hours": list(range(CALENDAR_START_HOUR, CALENDAR_END_HOUR)),
         "month_display": f"{month.capitalize()} {reference.year}",
         "week_number": first.isocalendar().week,
+        "previous_week": (first - timedelta(days=7)).isoformat(),
+        "next_week": (first + timedelta(days=7)).isoformat(),
+        "current_week": _week_start(today).isoformat(),
+        "is_current_week": first == _week_start(today),
     }
 
 

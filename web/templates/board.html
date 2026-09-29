@@ -5,6 +5,7 @@
     <title>{{ view.family_name or "DinkyDash" }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
+    <meta name="referrer" content="no-referrer">
     <noscript><meta http-equiv="refresh" content="{{ view.reload_seconds }}"></noscript>
     <link rel="icon" href="{{ static_url('favicon.svg') }}" type="image/svg+xml">
     <link rel="manifest" href="{{ manifest_url }}">
@@ -14,6 +15,9 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="{{ '#171717' if view.theme == 'dark' else '#fdfdfd' }}">
     {% include "_fonts.html" %}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@300;600&amp;display=swap" rel="stylesheet">
     <style>
         :root {
             --background: #fdfdfd;
@@ -28,8 +32,8 @@
             --sky: #bfd8e8;
             --butter: #eee0a8;
             --rose: #e8bdc4;
-            --font-sans: 'Nunito', 'Inter', system-ui, sans-serif;
-            --font-display: 'Nunito', 'Space Grotesk', system-ui, sans-serif;
+            --font-sans: 'Inter', system-ui, sans-serif;
+            --font-display: 'Space Grotesk', system-ui, sans-serif;
             --gutter: 5rem;
             --right: 2rem;
         }
@@ -52,6 +56,11 @@
         .month { font-family: var(--font-display); font-size: 1.875rem; font-weight: 600; letter-spacing: -.025em; }
         .slash { font-family: var(--font-display); font-size: 1.875rem; font-weight: 300; color: var(--muted-foreground); }
         .week { font-family: var(--font-display); font-size: 1.5rem; font-weight: 600; }
+        .week-controls { display: flex; align-items: center; gap: .375rem; margin-left: auto; }
+        .week-control { display: inline-flex; align-items: center; justify-content: center; min-width: 2.25rem; height: 2.25rem; padding: 0 .75rem; border: 1px solid var(--grid-line); border-radius: 999px; color: var(--foreground); text-decoration: none; font-size: .8125rem; font-weight: 500; background: transparent; }
+        .week-control:hover, .week-control:focus-visible { border-color: var(--tick); background: var(--grid-line); outline: none; }
+        .week-control.arrow { padding: 0; font-family: var(--font-display); font-size: 1.25rem; }
+        .week-control[aria-current="true"] { color: var(--muted-foreground); }
         .week-head, .week-body { display: grid; grid-template-columns: var(--gutter) repeat(7, minmax(0, 1fr)); padding-right: var(--right); }
         .day-head { display: flex; flex-direction: column; align-items: center; gap: .25rem; padding-bottom: .5rem; }
         .day-num { font-family: var(--font-display); font-size: 3rem; line-height: 1; font-weight: 600; letter-spacing: -.025em; font-variant-numeric: tabular-nums; color: var(--muted-faint); }
@@ -92,7 +101,7 @@
 {% if view.state == 'frozen' %}<div class="banner">Tu prueba o suscripción ha terminado. Se muestra el último calendario guardado.</div>
 {% endif %}
 <main class="calendar">
-    <header class="calendar-head"><h1 class="month">{{ view.month_display }}</h1><span class="slash" aria-hidden="true">/</span><p class="week">Semana {{ view.week_number }}</p></header>
+    <header class="calendar-head"><h1 class="month">{{ view.month_display }}</h1><span class="slash" aria-hidden="true">/</span><p class="week">Semana {{ view.week_number }}</p><nav class="week-controls" aria-label="Cambiar semana"><a class="week-control arrow" href="?week={{ view.previous_week }}" aria-label="Semana anterior">&larr;</a><a class="week-control" href="?week={{ view.current_week }}" aria-current="{{ 'true' if view.is_current_week else 'false' }}">Hoy</a><a class="week-control arrow" href="?week={{ view.next_week }}" aria-label="Semana siguiente">&rarr;</a></nav></header>
     <div class="week-head"><div aria-hidden="true"></div>{% for day in view.week_days %}<div class="day-head{{ ' today' if day.today }}"><span class="day-num">{{ day.number }}</span><span class="day-name">{{ day.name }}</span><span class="tick" aria-hidden="true"></span></div>{% endfor %}</div>
     <div class="week-body">
         <div class="gutter">{% for hour in view.calendar_hours %}<span class="hour{{ ' first' if loop.first }}" style="top:{{ loop.index0 * 10 }}%">{{ '%02d:00'|format(hour) }}</span>{% endfor %}</div>

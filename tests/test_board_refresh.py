@@ -109,10 +109,9 @@ class TestWhatTheBadgeCanSay:
         assert 'data-timezone="Europe/Berlin"' in waiting
 
     def test_the_badge_offers_no_way_out(self, ready):
-        """It sits on a wall, in a page that deliberately has no link out
-        (`tests/test_settings.py` asserts the same of the whole page)."""
+        """Week controls stay on the board and never lead into settings."""
         assert "/settings" not in ready
-        assert "<a " not in ready
+        assert 'href="?week=' in ready
 
 
 class TestADeployReachesTheWall:

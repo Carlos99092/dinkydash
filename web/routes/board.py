@@ -12,6 +12,7 @@ dashboard is one piece of code reached two ways rather than two that drift.
 """
 
 import os
+from datetime import date
 
 from flask import (Blueprint, current_app, redirect, render_template, request,
                    url_for)
@@ -91,7 +92,16 @@ def render_board(store, manifest_url=None, access=None):
         # dashboard that is not today's is actually late, and a date taken
         # separately could land the other side of midnight from it.
         now = config_module.now_for(config)
-        view = board_view.build_view(config, payload, now.date(), now=now)
+        displayed_day = now.date()
+        requested_week = request.args.get("week", "").strip()
+        if requested_week:
+            try:
+                displayed_day = date.fromisoformat(requested_week)
+            except ValueError:
+                displayed_day = now.date()
+        view = board_view.build_view(
+            config, payload, now.date(), now=now, displayed_day=displayed_day,
+        )
     return render_template("board.html", view=view,
                            manifest_url=manifest_url or url_for("board.manifest"))
 
