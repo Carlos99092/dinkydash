@@ -7,4 +7,4 @@ Raspberry Pi cron job and, later, a multi-tenant scheduler, and it is what
 makes any of this testable.
 """
 
-__all__ = ["context", "calendars", "prompt", "claude_client", "generate", "config", "history"]
+__all__ = ["calendars", "config", "board", "runner", "schedule"]

@@ -77,8 +77,6 @@
         .event-place { font-size: .75rem; opacity: .55; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .banner, .offline { display: flex; align-items: center; gap: .7rem; background: #fdf6e7; color: #a6530b; padding: .55rem 2rem; font-size: .78rem; font-weight: 700; flex: none; }
         .offline[hidden] { display: none; } .offline::before { content: ""; width: .5rem; height: .5rem; border-radius: 50%; background: currentColor; }
-        .note { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
-        .note-label { font-weight: 800; display: inline; margin-right: .35rem; }
         .waiting { height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.2rem; text-align: center; padding: 2rem; }
         .family { font-size: .85rem; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: #a75a35; }
         .waiting-head { font-size: 2.25rem; font-weight: 800; } .waiting-sub { max-width: 34rem; color: var(--muted-foreground); line-height: 1.5; }
@@ -88,15 +86,13 @@
 <body data-reload="{{ view.reload_seconds }}" data-version="{{ board_version() }}"{% if view.state in ('ready', 'stale') %} data-today="{{ view.today }}"{% endif %} data-timezone="{{ view.timezone }}">
 {% if view.state == 'ended' %}
 <div class="waiting"><div class="family">DinkyDash</div><div class="waiting-head">Tu prueba o suscripción ha terminado</div><div class="waiting-sub">Las actualizaciones del panel están pausadas. Abre los ajustes desde un móvil u ordenador para gestionar tu cuenta.</div></div>
-{% elif view.state == 'waiting' and view.set_up %}
-<div class="waiting"><div class="family">DinkyDash</div><div class="waiting-head">Preparando el primer calendario de {{ view.family_name or "tu familia" }}&hellip;</div><div class="bar"><span></span></div><div class="waiting-sub">La próxima actualización lo preparará, normalmente en unos minutos, y esta página se completará automáticamente.</div></div>
 {% elif view.state == 'waiting' %}
-<div class="waiting"><div class="family">DinkyDash</div><div class="waiting-head">Ya casi está</div><div class="waiting-sub">Termina la configuración y esta pantalla se completará automáticamente en cuanto esté listo el primer calendario.</div></div>
+<div class="waiting"><div class="family">DinkyDash</div><div class="waiting-head">Conecta un calendario</div><div class="waiting-sub">Añade un enlace iCal en los ajustes para mostrar tus eventos.</div></div>
 {% else %}
 {% if view.state == 'frozen' %}<div class="banner">Tu prueba o suscripción ha terminado. Se muestra el último calendario guardado.</div>
-{% elif view.overdue %}<div class="banner">La nota de hoy todavía no ha llegado. El calendario sí está actualizado.</div>{% endif %}
+{% endif %}
 <main class="calendar">
-    <header class="calendar-head"><h1 class="month">{{ view.month_display }}</h1><span class="slash" aria-hidden="true">/</span><p class="week">Semana {{ view.week_number }}</p>{% if view.note %}<div class="note{{ ' is-stale' if view.stale }}">{% if view.stale %}<span class="note-label">{% if view.stale_days == 1 %}Nota de ayer{% else %}Nota anterior{% endif %}</span>{% endif %}{{ view.note }}</div>{% endif %}</header>
+    <header class="calendar-head"><h1 class="month">{{ view.month_display }}</h1><span class="slash" aria-hidden="true">/</span><p class="week">Semana {{ view.week_number }}</p></header>
     <div class="week-head"><div aria-hidden="true"></div>{% for day in view.week_days %}<div class="day-head{{ ' today' if day.today }}"><span class="day-num">{{ day.number }}</span><span class="day-name">{{ day.name }}</span><span class="tick" aria-hidden="true"></span></div>{% endfor %}</div>
     <div class="week-body">
         <div class="gutter">{% for hour in view.calendar_hours %}<span class="hour{{ ' first' if loop.first }}" style="top:{{ loop.index0 * 10 }}%">{{ '%02d:00'|format(hour) }}</span>{% endfor %}</div>

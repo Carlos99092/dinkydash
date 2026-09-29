@@ -1,116 +1,16 @@
-# DinkyDash configuration
-# Copy this file to config.yaml and make it yours. The settings UI at
-# /settings writes this same file, and keeps your comments. It also adds a
-# short `id` to each person, pet, chore, date and calendar the first time you
-# open it — leave those alone, they are how it tells one entry from another.
-
-# Shown in the corner of the dashboard.
-family_name: "Our family"
-
-# Decides when "today" rolls over and how calendar times are displayed.
-# Set it even if the machine's clock is already local — the engine works from
-# this value, not from the server clock.
-timezone: "Europe/Berlin"
-
-# How times are written: 24h (15:45) or 12h (3:45 pm). The time zone above
-# decides what a time is; this decides how it is shown.
+# DinkyDash: calendario semanal
+family_name: "Mi calendario"
+timezone: "Europe/Madrid"
 clock: "24h"
-
-# Optional. Gives the daily line a bit of local flavour.
-location: "Berlin, Germany"
-
-# light or dark.
 theme: light
 
-# One entry per iCal feed; they are merged into a single agenda.
-# Google, Apple iCloud and Outlook all publish an iCal link:
-#   Google   → Settings and sharing → Integrate calendar → Secret address in iCal format
-#   iCloud   → share the calendar → Public Calendar → Copy Link (webcal:// is fine)
-#   Outlook  → Settings → Calendar → Shared calendars → Publish a calendar → the ICS link
-#
-# A personal calendar with work and private things in it can still go on the
-# dashboard: add `shared_with` with the other parent's email address, and only the
-# events with them on the guest list (or organised by them) get through. Use
-# the address on the invitation. Leave it out to show everything.
+# Añade uno o más enlaces iCal/ICS. Todos se combinan en la vista semanal.
 calendars:
-  - label: "Family"
+  - label: "Familia"
     url: "https://calendar.google.com/calendar/ical/you%40gmail.com/private-xxxx/basic.ics"
     enabled: true
     # shared_with: ["partner@example.com"]
 
-# Birthdays here become countdowns; names here are who chores rotate between.
-#
-# Mia, Theo and Biscuit are invented, and `invented: true` is how the app
-# knows: the settings page asks you to replace them, and the daily brief waits
-# until you have — a dashboard about children who are not yours is not a dashboard.
-# Saving a person from the settings page clears the mark; so does deleting the
-# line. A family written by hand needs no marks at all.
-people:
-  - name: "Mia"
-    date_of_birth: "2017-03-15"
-    avatar_emoji: "🦖"
-    avatar_color: purple
-    interests: "dinosaurs, drawing, swimming"
-    invented: true
-  - name: "Theo"
-    date_of_birth: "2019-06-20"
-    avatar_emoji: "⚽"
-    avatar_color: blue
-    interests: "football, lego"
-    invented: true
-
-pets:
-  - name: "Biscuit"
-    type: "dog"
-    avatar_emoji: "🐕"
-    invented: true
-
-# Rotated one person per day, by day of the year, in the order listed.
-recurring:
-  - title: "Set the table"
-    emoji: "🍽"
-    choices: ["Mia", "Theo"]
-  - title: "Feed Biscuit"
-    emoji: "🦴"
-    choices: ["Theo", "Mia"]
-
-# Countdowns that come back every year. Day and month only.
-special_dates:
-  - title: "Christmas"
-    emoji: "🎄"
-    date: "12/25"
-  - title: "Summer holidays"
-    emoji: "☀️"
-    date: "07/01"
-
-# claude-haiku-4-5 costs roughly $0.13/month at one dashboard a day.
-# claude-sonnet-5 writes better for about three times that.
-claude_model: "claude-haiku-4-5"
-max_tokens: 1024
-
-# How far ahead to fetch calendar events. The dashboard shows today; the extra days
-# give the model context, and keep the agenda right if a morning's run fails.
 calendar_days_ahead: 14
-
-# How many days of past notes to send back to the model so it doesn't repeat itself.
-history_days: 30
-
-# The two cadences, read by `generate.py --tick` (the */5 cron line). A plain
-# `generate.py` ignores them and does both at once, as it always has.
-#
-# How often the calendars are re-fetched. This is what puts an appointment added
-# at 09:00 onto the dashboard the same day. Fetching costs nothing, but Google's
-# secret .ics feed is cached at their end and can lag by hours, so asking more
-# often than every 15 minutes buys nothing.
 refresh_minutes: 60
-
-# When the daily brief is written, on your own clock. Quote it — an unquoted
-# 06:00 is a number in older YAML. One brief a day; "Rewrite daily message" covers the rest.
-brief_time: "06:00"
-
-# Where the generated dashboard and the record of recent notes are kept. Relative
-# paths sit beside this file, so `generate.py --config` moves them with it.
-# These two are storage-layer keys: only the file store reads them, and the
-# hosted version keeps the same two things as rows instead.
 data_file: "dashboard_data.json"
-content_history_file: "content_history.json"

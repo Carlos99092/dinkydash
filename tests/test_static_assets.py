@@ -164,7 +164,7 @@ class TestMovingBetweenPages:
         assert "@view-transition" not in client.get("/").get_data(as_text=True)
 
     def test_settings_links_are_prerendered_and_the_export_is_not(self, client):
-        page = client.get("/settings/people").get_data(as_text=True)
+        page = client.get("/settings/calendars").get_data(as_text=True)
         match = re.search(r'<script type="speculationrules">\s*(.*?)\s*</script>', page, re.S)
         assert match, "the settings shell carries speculation rules"
         rules = json.loads(match.group(1))

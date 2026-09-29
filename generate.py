@@ -1,16 +1,5 @@
 #!/usr/bin/env python3
-"""Write the dashboard. Run from cron.
-
-    */5 * * * * cd /home/pi/dinkydash && venv/bin/python generate.py --tick >> generate.log 2>&1
-
-`--tick` does only what the config says is owed: re-fetch the calendars every
-`refresh_minutes`, write the brief once a day after `brief_time`, and exit
-quietly when neither is due. Without it, a plain run does both at once, which
-is what the old `0 6 * * *` line has always meant.
-
-Everything interesting lives in the dinkydash package; this is the command-line
-skin around dinkydash.runner.
-"""
+"""Refresh the calendar dashboard from cron or the command line."""
 
 import argparse
 import logging
@@ -26,8 +15,8 @@ except ImportError:  # pragma: no cover - Windows has no flock
 from dotenv import load_dotenv
 
 from dinkydash import config as config_module
-from dinkydash.claude_client import GenerationError
-from dinkydash.runner import refresh_calendars, run, write_brief
+from dinkydash.errors import GenerationError
+from dinkydash.runner import refresh_calendars, run
 from dinkydash.schedule import due
 from dinkydash.store import FileStore
 
@@ -90,11 +79,8 @@ LOCK_FILE = ".tick.lock"
 def only_one_tick(path):
     """Hold an exclusive lock for the tick, or yield False and let it be skipped.
 
-    A tick can outlive its five-minute slot — several feeds timing out, then a
-    slow model call — and the next one would find the brief still unwritten and
-    pay for it a second time, with two history entries and a last-writer-wins
-    race over the payload. The overlapping tick gives up instead: whatever is
-    owed is still owed five minutes later.
+    Slow calendar feeds can outlive a cron slot, so overlapping refreshes are
+    skipped and the next tick tries again.
     """
     if fcntl is None:
         yield True
@@ -114,11 +100,7 @@ def only_one_tick(path):
 def tick(config, store, budget=None):
     """Do what the clock and the config say is owed, and no more.
 
-    `budget` is the ceiling on what the model call may cost and defaults to
-    none, which is what a self-hoster's own API key deserves. The worker passes
-    a Postgres-backed one per family (DIN-43); a refusal arrives here as an
-    ordinary `GenerationError` and takes the keep-last-good path below without
-    needing a branch of its own.
+    The optional budget object only checks whether this family may refresh.
     """
     now = datetime.now(timezone.utc)
     payload = store.load_payload(config)
@@ -132,14 +114,7 @@ def tick(config, store, budget=None):
 
     try:
         if owed["refresh"]:
-            # A stale refresh also stops this tick's brief; the next pass loads
-            # the new config before fetching or making a model call.
             refresh_calendars(config, store, now=now, budget=budget)
-        if owed["brief"]:
-            today = now.astimezone(config_module.tzinfo_for(config)).date()
-            # runner logs date and usage. Reporting family text is reserved for
-            # the explicit CLI run above, never the shared worker or cron tick.
-            write_brief(config, store, today=today, budget=budget)
     except GenerationError as exc:
         log.error("%s", exc)
         log.error("Keeping the previous dashboard; the next tick will try again.")
@@ -148,8 +123,7 @@ def tick(config, store, budget=None):
 
 
 def report(payload):
-    log.info("Headline: %s", payload["headline"])
-    log.info("Note: %s", payload["note"])
+    log.info("Calendar refreshed: %d events", len(payload.get("events") or []))
 
 
 if __name__ == "__main__":

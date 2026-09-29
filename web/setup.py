@@ -30,43 +30,16 @@ def status(config, payload):
     now would be theirs.
     """
     set_up = config_module.is_set_up(config)
-    written = bool((payload or {}).get("generated_for_date"))
     return {
-        "in_progress": not (set_up and written),
+        "in_progress": not set_up,
         "ready": set_up,
-        "written": written,
-        "steps": [household(config), timezone(config), calendar(config)],
-    }
-
-
-def household(config):
-    """Step one: the invented people and pets, until they are gone."""
-    invented = config_module.invented_names(config)
-    invented_people = config_module.invented_names({"people": config.get("people")})
-    invented_pets = config_module.invented_names({"pets": config.get("pets")})
-    people = config_module.people_names(config)
-    pets = [p["name"] for p in config.get("pets") or []
-            if isinstance(p, dict) and p.get("name")]
-    if invented:
-        verb = "is" if len(invented) == 1 else "are"
-        detail = (f"{names(invented)} {verb} invented, so the dashboard has something "
-                  f"to show. Rename or remove them.")
-    elif people or pets:
-        detail = names(people + pets)
-    else:
-        detail = "Nobody yet. Add the people whose birthdays and turns go on the dashboard."
-    return {
-        "key": "household", "title": "Who lives here", "done": not invented,
-        "detail": detail,
-        "href": url_for("settings.section_list",
-                        section_name="pets" if invented_pets and not invented_people else "people"),
-        "other_href": (url_for("settings.section_list", section_name="pets")
-                       if invented_pets and invented_people else None),
+        "written": bool((payload or {}).get("calendars_fetched_at")),
+        "steps": [timezone(config), calendar(config)],
     }
 
 
 def timezone(config):
-    """Step two: the one setting that changes what the dashboard says."""
+    """Step one: the one setting that changes what the dashboard says."""
     done = config_module.timezone_is_set(config)
     return {
         "key": "timezone", "title": "Time zone", "done": done,
@@ -78,7 +51,7 @@ def timezone(config):
 
 
 def calendar(config):
-    """Step three: optional, and said to be — but it is the product."""
+    """Step two: optional, and said to be — but it is the product."""
     on = [c.get("label") or "Calendar" for c in config.get("calendars") or []
           if isinstance(c, dict) and c.get("enabled")]
     return {

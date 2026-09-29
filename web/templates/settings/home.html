@@ -1,393 +1,57 @@
 {% extends "settings/base.html" %}
 {% import "settings/_icons.html" as icons %}
-{% block title %}Settings{% endblock %}
-
-{% block head %}
-<style>
-    /* The set-up checklist. Only this page has one, so its rules live here
-       rather than in the shared sheet; sized in rem and em like everything
-       else, so it scales with the root. */
-    .step-badge {
-        width: 1.875rem; height: 1.875rem; border-radius: 50%; flex-shrink: 0;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 0.8125rem; font-weight: 800;
-        background: var(--warm); color: var(--accent-dark);
-    }
-    .step.done .step-badge { background: rgba(22, 163, 74, 0.12); color: var(--green); }
-    .step.done .row-title { color: var(--text-mid); }
-    .step + .step { border-top: 1px solid var(--border); }
-    .step .row-sub { white-space: normal; }
-    /* The one-tap offer sits under its row, indented to the text. */
-    .step-offer { padding: 0 0.875rem 0.875rem 3.5625rem; }
-    .dashboard-actions .btn { height: auto; min-height: 3rem; padding: 0.625rem; }
-    .dashboard-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.625rem; }
-    @media (max-width: 26rem) {
-        .dashboard-actions { grid-template-columns: 1fr; }
-    }
-    /* The bar's title block: the name, and under it who is signed in. Both
-       truncate rather than wrap, so a long address can neither push the
-       actions off the bar nor make it taller — the pair fits in its 3.5rem. */
-    .identity { flex-grow: 1; min-width: 0; }
-    .identity h1 { line-height: 1.25; }
-    .identity .who {
-        padding-left: 0.25rem; font-size: 0.75rem; font-weight: 700; line-height: 1.25;
-        color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-</style>
-{% endblock %}
+{% block title %}Calendario{% endblock %}
 
 {% block appbar %}
-{# Under the title, who is signed in — hosted only, since a self-hoster has no
-   account. A phone two parents share should say whose settings these are, and
-   the account page is three taps away. For an address on DINKYDASH_ADMIN_EMAILS
-   the bar also carries the one link there is to the operator's page;
-   `tests/test_admin.py` asserts nobody else is shown it. #}
-<div class="identity">
-    <h1 style="padding-left:0.25rem;color:var(--accent);font-size:1.15rem;">DinkyDash</h1>
-    {% if address %}<div class="who">{{ address }}</div>{% endif %}
-</div>
-{% if admin %}<a class="action muted" href="{{ url_for('admin.growth_page') }}">View admin</a>{% endif %}
-{# The dashboard link is "View dashboard" by another name, so it waits with it and
-   opens its own tab for the same reason — see the button. #}
-{% if not setting_up %}<a class="action muted" href="{{ board_link }}" target="_blank" rel="noopener">Dashboard</a>{% endif %}
+<div style="flex-grow:1;min-width:0;"><h1 style="padding-left:.25rem;color:var(--accent);font-size:1.15rem;">DinkyDash</h1>{% if address %}<div style="padding-left:.25rem;font-size:.75rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ address }}</div>{% endif %}</div>
+{% if admin %}<a class="action muted" href="{{ url_for('admin.growth_page') }}">Admin</a>{% endif %}
+{% if not setting_up %}<a class="action muted" href="{{ board_link }}" target="_blank" rel="noopener">Calendario</a>{% endif %}
 {% endblock %}
 
 {% block content %}
-{% if status.state == 'lapsed' %}
-<div class="flash error" role="alert">
-    {{ status.detail }}
-    <a href="{{ url_for('billing.home') }}">Open Subscription to resume updates.</a>
-</div>
-{% endif %}
-{% if setting_up %}
-{# **The checklist.** Shown until the family is set up and its first dashboard is
-   written, in place of the daily controls — "Refresh calendars" with no
-   calendar, "View dashboard" on an invented household and "Write it now" about
-   the same are the three buttons a new parent used to be met with. Every
-   step's "done" is read off the config by `web/setup.py`, and the engine
-   asks the same question (`config.is_set_up`) before writing anything, so
-   the page and the tick cannot disagree. Nothing to dismiss and nothing
-   remembered: it leaves on its own. #}
-<div class="card pad" style="display:flex;flex-direction:column;gap:0.1875rem;">
-    <div style="font-size:1.125rem;font-weight:800;">Set up your dashboard</div>
-    <div class="hint">
-        Three steps, then a screen to put it on. The dashboard writes itself as soon as
-        the first two are done.
-    </div>
-</div>
+{% if status.state == 'lapsed' %}<div class="flash error" role="alert">{{ status.detail }}</div>{% endif %}
 
+{% if setting_up %}
+<div class="card pad">
+    <div style="font-size:1.125rem;font-weight:800;">Configura tu calendario</div>
+    <div class="hint">Elige tu zona horaria y conecta al menos un calendario.</div>
+</div>
 <div class="card">
     {% for step in setup.steps %}
-    <div class="step{{ ' done' if step.done }}">
-        <div class="row">
-            <div class="step-badge">{% if step.done %}{{ icons.tick() }}{% else %}{{ loop.index }}{% endif %}</div>
-            <a class="row-main" href="{{ step.href }}">
-                <div class="row-title">{{ step.title }}</div>
-                <div class="row-sub">{{ step.detail }}</div>
-            </a>{{ icons.chevron() }}
-        </div>
-        {% if step.other_href %}
-        <div class="step-offer"><a href="{{ step.other_href }}">Review example pets too</a></div>
-        {% endif %}
-        {% if step.key == 'timezone' and not step.done %}
-        {# Hidden until the script below has read the phone's own zone into it.
-           Without JavaScript the row above still leads to the full list. #}
-        <form class="step-offer" id="tz-offer" method="post" action="{{ url_for('settings.set_timezone') }}" hidden>
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="timezone" value="">
-            <button class="btn small" type="submit">Use <span id="tz-zone"></span></button>
-        </form>
-        {% endif %}
-    </div>
+    <a class="row" href="{{ step.href }}">
+        <div class="row-main"><div class="row-title">{{ step.title }}</div><div class="row-sub">{{ step.detail }}</div></div>{{ icons.chevron() }}
+    </a>
     {% endfor %}
-    <div class="step">
-        <div class="row">
-            <div class="step-badge">4</div>
-            <div class="row-main">
-                <div class="row-title">Put it on the screen</div>
-                <div class="row-sub">
-                    {% if screen %}Open the link below on the TV, tablet or Pi and leave the page up. It redraws itself.
-                    {% else %}Once the first two steps are done, the link for the screen appears here.{% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
-
-{% if screen %}
-{# Steps one and two are done: a dashboard written now would be theirs. The link,
-   and the button that writes it without waiting for the worker's next pass. #}
-<div class="card pad" style="display:flex;flex-direction:column;gap:0.875rem;">
-    {% with screen_link = screen.link, screen_qr = screen.qr %}
-    {% include "settings/_screen_link.html" %}
-    {% endwith %}
-    {% if cloud %}
-    <div class="hint">
-        <strong>Anyone with this link can see your dashboard.</strong> There is no password on it, which
-        is what lets a screen show it without signing in. You can change it later under The screen.
-    </div>
-    {% endif %}
-    <form class="inline-form" method="post" action="{{ url_for('settings.generate_now') }}" data-pending="Writing your daily message…">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        {# Keep this label in sync with the waiting screen in board.html. #}
-        <button class="btn" type="submit">Write first daily message</button>
+{% else %}
+<div class="card pad" style="display:flex;flex-direction:column;gap:.875rem;">
+    <div><div style="font-size:1.125rem;font-weight:800;">{{ config.family_name or "Mi calendario" }}</div><div class="hint">{{ status.detail }}</div></div>
+    {% if calendars_on %}
+    <form class="inline-form" method="post" action="{{ url_for('settings.refresh_now') }}" data-pending="Actualizando calendarios…">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn" type="submit">{{ icons.refresh() }} Actualizar calendarios</button>
     </form>
-    <div class="hint">
-        It writes itself within a few minutes anyway; this is the shortcut. Everything above can
-        still be changed afterwards.
-    </div>
+    {% endif %}
+    <a class="btn outline" href="{{ board_link }}" target="_blank" rel="noopener">{{ icons.screen() }} Ver calendario</a>
 </div>
 {% endif %}
 
-{% else %}
-<div class="card pad" style="display:flex;flex-direction:column;gap:0.875rem;">
-    <div>
-        <div style="font-size:1.125rem;font-weight:800;">{{ config.family_name or "Your dashboard" }}</div>
-        <div style="display:flex;align-items:center;gap:0.4375rem;margin-top:0.1875rem;">
-            <span class="dot {{ status.state }}"></span>
-            <span style="font-size:0.8125rem;color:var(--text-mid);">{{ status.detail }}</span>
-        </div>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:0.625rem;">
-        {# The cheap half first: fetching the calendars costs a few requests,
-           while rewriting the line costs a call to Claude. #}
-        {% if calendars_on %}
-        <form class="inline-form" method="post" action="{{ url_for('settings.refresh_now') }}" data-pending="Refreshing your calendars…">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button class="btn" type="submit" {{ 'disabled' if status.state == 'lapsed' }}>{{ icons.refresh() }} Refresh calendars</button>
-        </form>
-        {% else %}
-        {# Nothing to refresh, so the slot offers the thing that would give it
-           something to do. #}
-        <a class="btn" href="{{ url_for('settings.section_edit', section_name='calendars', item_id='new') }}">{{ icons.plus() }} Add a calendar</a>
-        {% endif %}
-        <div class="dashboard-actions">
-            {# **The dashboard opens in its own tab, on purpose.** It is the wall
-               panel: full screen, no link out, reloading itself for years.
-               Opened in this tab from a settings page saved to a phone's home
-               screen it was a dead end — a saved web app has no address bar
-               and, on an iPhone, no Back button, so the way out was to
-               force-quit the app. Its own tab is a way back the dashboard never
-               has to draw: a tab to close, an in-app sheet with Done on iOS,
-               a custom tab with an X on Android. The panel never follows this
-               link; it opens the screen URL itself. #}
-            <a class="btn outline" href="{{ board_link }}" target="_blank" rel="noopener">{{ icons.screen() }} View dashboard</a>
-            <form class="inline-form" method="post" action="{{ url_for('settings.generate_now') }}" data-pending="Writing your daily message…">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button class="btn outline" type="submit" {{ 'disabled' if status.state == 'lapsed' }}>Rewrite daily message</button>
-            </form>
-        </div>
-        {% if cloud %}
-        {# The link and the QR code, from the card a parent looks at for them.
-           They were the ninth row down, under a title that reads like "Preview
-           the screens" two rows later, and were not found there. Hosted only:
-           a self-hoster's dashboard is at `/` on the host they are already on, and
-           the Colours page says so. #}
-        <a class="btn outline" href="{{ url_for('settings.screen') }}">{{ icons.link() }} Screen link &amp; QR code</a>
-        {% endif %}
-    </div>
-</div>
-{% endif %}
-
-{% if broken %}
-<div class="flash error">
-    {{ broken|length }} calendar{{ "s" if broken|length != 1 }} didn't answer at the last run.
-</div>
-{% endif %}
+{% if broken %}<div class="flash error">{{ broken|length }} calendario{{ "s" if broken|length != 1 }} no ha respondido.</div>{% endif %}
 
 <div>
-    <div class="label">What's on the dashboard</div>
+    <div class="label">Calendario</div>
     <div class="card">
-        <a class="row" href="{{ url_for('settings.section_list', section_name='people') }}">
-            <div class="row-main">
-                <div class="row-title">People</div>
-                <div class="row-sub">{{ config.people | map(attribute='name') | join(', ') or "Nobody yet" }}</div>
-            </div>{{ icons.chevron() }}
-        </a>
-        <a class="row" href="{{ url_for('settings.section_list', section_name='pets') }}">
-            <div class="row-main">
-                <div class="row-title">Pets</div>
-                <div class="row-sub">{{ config.pets | map(attribute='name') | join(', ') or "None" }}</div>
-            </div>{{ icons.chevron() }}
-        </a>
-        <a class="row" href="{{ url_for('settings.section_list', section_name='recurring') }}">
-            <div class="row-main">
-                <div class="row-title">Chores</div>
-                <div class="row-sub">
-                    {# The titles, not a count: a starter job left behind — "Feed
-                       Biscuit" after Biscuit has gone — should be visible from here. #}
-                    {% if counts.recurring and counts.recurring <= 3 %}{{ config.recurring | map(attribute='title') | join(' · ') }}{% else %}{{ counts.recurring }} chore{{ "s" if counts.recurring != 1 }}, rotating daily{% endif %}{% if counts.jobs_unassigned %}
-                    &middot; <span style="color:var(--amber-dark);font-weight:700;">{{ counts.jobs_unassigned }} with nobody assigned</span>{% endif %}
-                </div>
-            </div>{{ icons.chevron() }}
-        </a>
-        <a class="row" href="{{ url_for('settings.section_list', section_name='special_dates') }}">
-            <div class="row-main">
-                <div class="row-title">Special dates</div>
-                <div class="row-sub">{{ counts.special_dates }} countdown{{ "s" if counts.special_dates != 1 }}</div>
-            </div>{{ icons.chevron() }}
-        </a>
-        <a class="row" href="{{ url_for('settings.section_list', section_name='calendars') }}">
-            <div class="row-main">
-                <div class="row-title">Calendars</div>
-                <div class="row-sub">
-                    {% if broken %}<span style="color:var(--amber-dark);font-weight:700;">{{ broken|length }} of {{ counts.calendars }} needs attention</span>
-                    {% else %}{{ counts.calendars }} calendar{{ "s" if counts.calendars != 1 }}{% endif %}
-                </div>
-            </div>{{ icons.chevron() }}
-        </a>
+        <a class="row" href="{{ url_for('settings.section_list', section_name='calendars') }}"><div class="row-main"><div class="row-title">Calendarios conectados</div><div class="row-sub">{{ counts.calendars }}</div></div>{{ icons.chevron() }}</a>
+        <a class="row" href="{{ url_for('settings.refresh') }}"><div class="row-main"><div class="row-title">Frecuencia de actualización</div><div class="row-sub">{{ cadence }}</div></div>{{ icons.chevron() }}</a>
+        <a class="row" href="{{ url_for('settings.system') }}"><div class="row-main"><div class="row-title">Zona horaria y apariencia</div><div class="row-sub">{{ config.timezone }}</div></div>{{ icons.chevron() }}</a>
+        <a class="row" href="{{ url_for('settings.screen') }}"><div class="row-main"><div class="row-title">Pantalla</div><div class="row-sub">Enlace, QR y colores</div></div>{{ icons.chevron() }}</a>
     </div>
 </div>
 
-<div>
-    <div class="label">Your dashboard</div>
-    <div class="card">
-        {# Hosted, this page is where the screen link lives, and the row has to
-           say so — the wall link is the finish line of the whole product and
-           it used to be filed under "Colours". #}
-        <a class="row" href="{{ url_for('settings.screen') }}">
-            <div class="row-main">
-                <div class="row-title">{{ "The screen" if cloud else "Colours" }}</div>
-                <div class="row-sub">{{ config.theme | capitalize }}{{ " · the link and QR code for the dashboard" if cloud }}</div>
-            </div>{{ icons.chevron() }}
-        </a>
-        <a class="row" href="{{ url_for('settings.refresh') }}">
-            <div class="row-main">
-                <div class="row-title">How often it updates</div>
-                <div class="row-sub">{{ cadence }}</div>
-            </div>{{ icons.chevron() }}
-        </a>
-        <a class="row" href="{{ url_for('settings.system') }}">
-            <div class="row-main">
-                <div class="row-title">Family &amp; system</div>
-                <div class="row-sub">{{ config.timezone }}{{ " · " ~ config.location if config.location }}</div>
-            </div>{{ icons.chevron() }}
-        </a>
-        <a class="row" href="{{ url_for('board.preview') }}">
-            <div class="row-main">
-                <div class="row-title">Preview the screens</div>
-                <div class="row-sub">Pi, TV and tablet sizes side by side</div>
-            </div>{{ icons.chevron() }}
-        </a>
-    </div>
-</div>
-
-{# Hosted only. A self-hoster has no account to delete and nothing to export —
-   their data is a YAML file and two JSON files, in a directory they chose. #}
 {% if cloud %}
-<div>
-    <div class="label">Your account</div>
-    <div class="card">
-        <a class="row" href="{{ url_for('billing.home') }}">
-            <div class="row-main">
-                <div class="row-title">Subscription</div>
-                <div class="row-sub">Your trial, payments and cancellation</div>
-            </div>{{ icons.chevron() }}
-        </a>
-        <a class="row" href="{{ url_for('settings.account') }}">
-            <div class="row-main">
-                <div class="row-title">Your data</div>
-                <div class="row-sub">Download it, or delete everything</div>
-            </div>{{ icons.chevron() }}
-        </a>
-    </div>
-</div>
-{% endif %}
-
-{# The permanent way in. The pill at the foot of every page can be waved away
-   for good, so the offer has to exist somewhere it cannot be lost. #}
-{% if feedback_enabled() %}
-<div>
-    <div class="label">Tell us how it's going</div>
-    <div class="card">
-        <a class="row" href="{{ url_for('settings.feedback') }}">
-            <div class="row-main">
-                <div class="row-title">Send feedback</div>
-                <div class="row-sub">Broken, missing or irritating — it reaches a person</div>
-            </div>{{ icons.chevron() }}
-        </a>
-    </div>
-</div>
-{% endif %}
-
-{# Only hosted. Self-hosted has no accounts, so there is nothing to sign out of. #}
-{% if cloud %}
-<form method="post" action="{{ url_for('auth.logout') }}">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <button class="btn outline" type="submit">Sign out</button>
-</form>
-{% endif %}
-
-{% if setting_up %}
-<script>
-    // The phone's own clock setting, offered back as one tap. `Intl` is what
-    // the browser itself uses for dates, so this is the zone the person is
-    // actually in — unlike a guess from an IP address. Nothing is written
-    // until the button is pressed, and the server checks the name.
-    (function () {
-        var form = document.getElementById('tz-offer');
-        if (!form) return;
-        var zone;
-        try { zone = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) { return; }
-        if (!zone || zone === 'UTC' || zone === 'Etc/UTC') return;
-        form.querySelector('input[name=timezone]').value = zone;
-        document.getElementById('tz-zone').textContent = zone;
-        form.hidden = false;
-    })();
-</script>
-{% else %}
-{# Hidden until the script below decides it is worth showing: not already saved,
-   and not waved away before. Not offered while setting up — a page somebody
-   opened a minute ago is not one to keep yet. #}
-<div class="card pad" id="install-nudge" hidden style="display:flex;flex-direction:column;gap:0.75rem;">
-    <div>
-        <div style="font-size:0.9375rem;font-weight:800;">Keep this on your home screen</div>
-        <div class="hint" style="margin-top:0.1875rem;">
-            It opens like an app, so swapping whose turn it is takes two taps — not typing
-            this address in again.
-        </div>
-    </div>
-    <div class="note-box" id="install-how">
-        On an iPhone, tap <strong>Share</strong>, then <strong>Add to Home Screen</strong>.
-        On Android, open the <strong>⋮</strong> menu, then <strong>Add to home screen</strong>.
-    </div>
-    <button class="btn" type="button" id="install-go" hidden>Add to home screen</button>
-    <button class="btn small quiet" type="button" id="install-no" style="align-self:center;">Not now</button>
-</div>
-
-<script>
-    // The nudge is only useful in a browser tab. Once the page is running from
-    // the home screen it has done its job, and once it has been waved away it
-    // should stay away — a settings page you visit weekly should not nag.
-    (function () {
-        var box = document.getElementById('install-nudge');
-        var saved = window.matchMedia('(display-mode: standalone)').matches
-            || window.navigator.standalone === true;
-        var dismissed = false;
-        try {
-            dismissed = localStorage.getItem('dinkydash-install-nudge') === 'dismissed';
-        } catch (e) { /* private mode: show it, and let it be dismissed for this visit */ }
-        if (saved || dismissed) return;
-        box.hidden = false;
-
-        // Chrome offers to do the saving itself, but only over https — so on a
-        // home network served over plain http this never fires, and neither does
-        // it in Safari. The written steps are the default for that reason.
-        var offer = null;
-        window.addEventListener('beforeinstallprompt', function (event) {
-            event.preventDefault();
-            offer = event;
-            document.getElementById('install-how').hidden = true;
-            document.getElementById('install-go').hidden = false;
-        });
-        document.getElementById('install-go').addEventListener('click', function () {
-            if (offer) { offer.prompt(); offer = null; }
-        });
-        document.getElementById('install-no').addEventListener('click', function () {
-            try { localStorage.setItem('dinkydash-install-nudge', 'dismissed'); } catch (e) {}
-            box.hidden = true;
-        });
-    })();
-</script>
+<div><div class="label">Cuenta</div><div class="card">
+<a class="row" href="{{ url_for('billing.home') }}"><div class="row-main"><div class="row-title">Suscripción</div></div>{{ icons.chevron() }}</a>
+<a class="row" href="{{ url_for('settings.account') }}"><div class="row-main"><div class="row-title">Tus datos</div></div>{{ icons.chevron() }}</a>
+</div></div>
+<form method="post" action="{{ url_for('auth.logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn outline" type="submit">Cerrar sesión</button></form>
 {% endif %}
 {% endblock %}

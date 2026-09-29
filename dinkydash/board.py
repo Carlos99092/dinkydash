@@ -1,35 +1,11 @@
-"""Turning config + payload into what the dashboard template renders.
-
-The split that matters: `headline` and `note` come from the payload (the model
-wrote them, they can go stale), while the agenda, whose-turn and countdowns are
-recomputed here from the config and today's date. So when a morning's
-generation fails, the times and turns on the wall are still today's — only the
-written line is yesterday's, and it says so.
-
-Two words for that, because they are not the same thing: `stale` is "the line
-on the wall is not today's", which decides how the words are shown; `overdue`
-is "and this morning's brief was due by now", which is the only thing the amber
-banner may claim. Between local midnight and `brief_time` a dashboard is stale
-and nothing is wrong.
-"""
+"""Turn stored iCal events into the seven-day visual calendar."""
 
 import hashlib
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 
 from .calendars import events_on
 from .clock import clock_of, format_time
-from .config import is_set_up
-from .context import build_countdowns, compute_chore_assignments
-from .schedule import brief_due, refresh_interval
-
-# The agenda's row budget, not just today's cap. Today fills it first and
-# tomorrow tops up whatever is left, so a quiet day stops leaving the column
-# half empty while a busy one is never made to shrink to fit.
-MAX_EVENTS = 5
-# Tomorrow stays a footnote even when today is empty, so the agenda always
-# reads as today's first.
-MAX_TOMORROW = 3
-MAX_COUNTDOWNS = 3
+from .schedule import refresh_interval
 
 CALENDAR_START_HOUR = 8
 CALENDAR_END_HOUR = 18
@@ -137,39 +113,6 @@ def as_shown(events, clock):
     return shown
 
 
-def computed_headline(events):
-    """A headline derived from the day itself, for when the model's is stale."""
-    if not events:
-        return "Nothing booked in today."
-    timed = [e for e in events if not e["all_day"]]
-    count = len(events)
-    noun = "thing" if count == 1 else "things"
-    if timed:
-        return f"{count} {noun} on today, starting at {timed[0]['time']}."
-    return f"{count} {noun} on today."
-
-
-def brief_is_overdue(config, payload, stale_days, now):
-    """Whether a stale dashboard means this morning's brief actually failed.
-
-    Yesterday's line is not a fault until this morning's was due. Between local
-    midnight and `brief_time` nothing is owed, so "today's note hasn't arrived"
-    would be reporting a failure that has not happened — on a screen in a
-    kitchen, for the whole of the small hours. The banner waits for
-    the hour the family chose, and `schedule.brief_due` is what decides it, so
-    the wall and the tick cannot disagree about when a brief is late.
-
-    Two exceptions, both of them real faults at any hour: a dashboard more than
-    a day behind, and a payload with no readable date to be behind from. A
-    caller with no clock to pass gets the plain "stale means late" answer.
-    """
-    if now is None:
-        return True
-    if stale_days is None or stale_days > 1:
-        return True
-    return brief_due(config, payload, now)
-
-
 def reload_seconds(config):
     """How long the dashboard waits before rendering itself again.
 
@@ -181,124 +124,38 @@ def reload_seconds(config):
 
 
 def build_view(config, payload, today, now=None):
-    """The complete view model for templates/board.html.
-
-    `now` is this moment on the family's clock, and only the banner reads it:
-    without one every stale dashboard counts as late, which is what a caller
-    rendering a fixed day (the frozen dashboard, a test) wants.
-    """
+    """Build the calendar-only view model."""
     theme = config.get("theme", "light")
     theme = theme if theme in ("light", "dark") else "light"
-
-    chores = compute_chore_assignments(config.get("recurring"), today)
-    countdowns = build_countdowns(
-        config.get("people"), config.get("special_dates"), today,
-        limit=MAX_COUNTDOWNS,
-    )
-
-    # Whether there is a real family to write for yet. The waiting screen
-    # reads it to say "nearly there" rather than "writing your first dashboard"
-    # while nothing is being written — see `schedule.brief_due`.
-    set_up = is_set_up(config)
-
-    view = {
-        "family_name": config.get("family_name", ""),
-        "theme": theme,
-        # The times are already written for this family below; the template
-        # still needs to know which clock, because "12:00 pm" is wider than
-        # "12:00" and the agenda's time column is a fixed width.
-        "clock": clock_of(config),
-        "date_display": today.strftime("%A, %#d %B"),
-        "chores": chores,
-        "countdowns": countdowns,
-        "events": [],
-        "tomorrow": [],
-        "headline": "",
-        "note": "",
-        "stale": False,
-        "overdue": False,
-        "state": "waiting",
-        "set_up": set_up,
-        "reload_seconds": WAITING_RELOAD_SECONDS,
-        # Read by the page's own refresh (board.html): which day the dashboard
-        # on screen is for, and the zone its times are in, so a screen that
-        # has lost its connection can say "Showing Thursday's dashboard" once
-        # Thursday is over rather than letting the date in the corner lie.
-        "today": today.isoformat(),
-        "timezone": config.get("timezone") or "UTC",
-        "week_days": [],
-        "calendar_hours": list(range(CALENDAR_START_HOUR, CALENDAR_END_HOUR)),
-    }
-
-    if not payload:
-        return view
-    if not set_up and not payload.get("generated_for_date"):
-        # The calendars have been fetched but the family is still setting up.
-        # An agenda under an amber "today's note hasn't arrived" banner
-        # would be wrong twice over: no brief was attempted, and the chores
-        # beside it would be the invented household's. The waiting screen
-        # says what is actually going on.
-        return view
-
-    view["reload_seconds"] = reload_seconds(config)
-
-    fetched = payload.get("events") or []
-    clock = view["clock"]
+    clock = clock_of(config)
     first = _week_start(today)
     reference = first + timedelta(days=3)
-    view["week_days"] = week_view(fetched, today, clock)
+    fetched = (payload or {}).get("events") or []
     month = SPANISH_MONTHS[reference.month - 1]
-    view["month_display"] = f"{month.capitalize()} {reference.year}"
-    view["week_number"] = first.isocalendar().week
-    # Rewritten before anything reads a time off them, so the computed headline
-    # below is on the family's clock too.
-    events = as_shown(events_on(fetched, today)[:MAX_EVENTS], clock)
-    view["events"] = events
-    # The fetch reaches 14 days ahead, so tomorrow is in the payload even when
-    # it is a day old. Slots are what today did not use, which is why a busy
-    # day silently drops tomorrow rather than overflowing the panel.
-    slots = min(MAX_TOMORROW, MAX_EVENTS - len(events))
-    view["tomorrow"] = as_shown(
-        events_on(fetched, today + timedelta(days=1))[:slots], clock) if slots else []
-
-    stale = payload.get("generated_for_date") != today.isoformat()
-    view["stale"] = stale
-    view["state"] = "stale" if stale else "ready"
-    view["note"] = payload.get("note", "")
-    # A day-old headline can be actively wrong ("Ines starts nursery today"), so
-    # it gives way to one derived from the real day. The note is harmless when
-    # stale, so it stays — labelled.
-    view["headline"] = computed_headline(events) if stale else payload.get("headline", "")
-
-    if stale:
-        try:
-            generated = datetime.fromisoformat(payload["generated_for_date"]).date()
-            view["stale_days"] = (today - generated).days
-        except (KeyError, ValueError):
-            view["stale_days"] = None
-        view["overdue"] = brief_is_overdue(config, payload, view["stale_days"], now)
-
-    return view
+    return {
+        "family_name": config.get("family_name", ""),
+        "theme": theme,
+        "clock": clock,
+        "state": "ready" if payload is not None else "waiting",
+        "set_up": True,
+        "reload_seconds": reload_seconds(config) if payload is not None else WAITING_RELOAD_SECONDS,
+        "today": today.isoformat(),
+        "timezone": config.get("timezone") or "UTC",
+        "week_days": week_view(fetched, today, clock),
+        "calendar_hours": list(range(CALENDAR_START_HOUR, CALENDAR_END_HOUR)),
+        "month_display": f"{month.capitalize()} {reference.year}",
+        "week_number": first.isocalendar().week,
+    }
 
 
 def build_lapsed_view(config, payload, show_last_board):
-    """Hold the last brief's date and computed turns, then show only a message.
-
-    Read existing data rather than retaining another copy of calendar details.
-    Explicit settings edits and calendar privacy invalidation still take effect.
-    """
-    if show_last_board:
-        try:
-            saved_day = date.fromisoformat((payload or {}).get("generated_for_date", ""))
-        except (TypeError, ValueError):
-            pass  # No successful brief: there is no dashboard to preserve.
-        else:
-            view = build_view(config, payload, saved_day)
-            view["state"] = "frozen"
-            return view
+    """Show the retained calendar, or the ended state when none may be shown."""
+    if show_last_board and payload is not None:
+        view = build_view(config, payload, datetime.now().date())
+        view["state"] = "frozen"
+        return view
     return {
         "state": "ended", "family_name": "", "reload_seconds": MAX_RELOAD_SECONDS,
         "theme": "dark" if config.get("theme") == "dark" else "light",
-        "clock": clock_of(config),
-        "timezone": config.get("timezone") or "UTC",
+        "clock": clock_of(config), "timezone": config.get("timezone") or "UTC",
     }
