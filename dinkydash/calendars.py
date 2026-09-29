@@ -257,10 +257,16 @@ def _events(occurrences, tzinfo, label, shared_with):
         raw = dtstart.dt
         all_day = not isinstance(raw, datetime)
         starts_at = _localise(raw, tzinfo)
+        dtend = component.get("DTEND")
+        # Keep the real finish for the visual week view. Older saved payloads
+        # do not have this field, so the board still supplies a sensible
+        # default duration when it reads one of those.
+        ends_at = _localise(dtend.dt, tzinfo) if dtend is not None else None
 
         events.append({
             "title": str(component.get("SUMMARY", "Untitled")).strip() or "Untitled",
             "start": starts_at.isoformat(),
+            "end": ends_at.isoformat() if ends_at is not None else None,
             "date": starts_at.date().isoformat(),
             "time": None if all_day else starts_at.strftime("%H:%M"),
             "all_day": all_day,

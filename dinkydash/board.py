@@ -13,6 +13,7 @@ banner may claim. Between local midnight and `brief_time` a dashboard is stale
 and nothing is wrong.
 """
 
+import hashlib
 from datetime import date, datetime, timedelta
 
 from .calendars import events_on
@@ -29,6 +30,74 @@ MAX_EVENTS = 5
 # reads as today's first.
 MAX_TOMORROW = 3
 MAX_COUNTDOWNS = 3
+
+CALENDAR_START_HOUR = 8
+CALENDAR_END_HOUR = 18
+CALENDAR_COLOURS = ("sage", "lilac", "apricot", "sky", "butter", "rose")
+
+
+def _week_start(day):
+    return day - timedelta(days=day.weekday())
+
+
+def _minutes(value, fallback):
+    """Minutes after midnight from an ISO datetime or HH:MM string."""
+    if not value:
+        return fallback
+    try:
+        if "T" in value:
+            parsed = datetime.fromisoformat(value)
+            return parsed.hour * 60 + parsed.minute
+        hour, minute = value.split(":", 1)
+        return int(hour) * 60 + int(minute[:2])
+    except (TypeError, ValueError):
+        return fallback
+
+
+def _calendar_colour(label):
+    # Stable pseudo-random colour: calendars look distinct without changing
+    # colour every time the wall display refreshes.
+    digest = hashlib.sha256((label or "Calendar").encode("utf-8")).digest()[0]
+    return CALENDAR_COLOURS[digest % len(CALENDAR_COLOURS)]
+
+
+def calendar_event(event, clock):
+    """Add the geometry and labels used by the ten-hour visual timeline."""
+    shown = as_shown([event], clock)[0]
+    start = CALENDAR_START_HOUR * 60 if event.get("all_day") else _minutes(
+        event.get("start") or event.get("time"), CALENDAR_START_HOUR * 60
+    )
+    default_end = start + (45 if event.get("all_day") else 60)
+    end = _minutes(event.get("end"), default_end)
+    start = max(CALENDAR_START_HOUR * 60, min(start, CALENDAR_END_HOUR * 60 - 15))
+    end = max(start + 15, min(end, CALENDAR_END_HOUR * 60))
+    span = (CALENDAR_END_HOUR - CALENDAR_START_HOUR) * 60
+    shown.update({
+        "top": (start - CALENDAR_START_HOUR * 60) * 100 / span,
+        "height": (end - start) * 100 / span,
+        "short": end - start <= 60,
+        "colour": _calendar_colour(event.get("calendar")),
+        "end_time": format_time(event.get("end"), clock) if event.get("end") else "",
+    })
+    return shown
+
+
+def week_view(events, today, clock):
+    """Seven Monday-to-Sunday columns, including empty days."""
+    first = _week_start(today)
+    days = []
+    for offset in range(7):
+        day = first + timedelta(days=offset)
+        days.append({
+            "date": day,
+            "iso": day.isoformat(),
+            "number": day.strftime("%d"),
+            "name": day.strftime("%a").rstrip(".").lower(),
+            "long_name": day.strftime("%A, %#d %B"),
+            "today": day == today,
+            "events": [calendar_event(event, clock) for event in events_on(events, day)],
+        })
+    return days
 
 # Nothing pushes to the dashboard, so it reloads itself on a timer. Five minutes is
 # the ceiling — it is a panel on a wall, not a page anyone is watching — and
@@ -148,6 +217,8 @@ def build_view(config, payload, today, now=None):
         # Thursday is over rather than letting the date in the corner lie.
         "today": today.isoformat(),
         "timezone": config.get("timezone") or "UTC",
+        "week_days": [],
+        "calendar_hours": list(range(CALENDAR_START_HOUR, CALENDAR_END_HOUR)),
     }
 
     if not payload:
@@ -164,6 +235,11 @@ def build_view(config, payload, today, now=None):
 
     fetched = payload.get("events") or []
     clock = view["clock"]
+    first = _week_start(today)
+    reference = first + timedelta(days=3)
+    view["week_days"] = week_view(fetched, today, clock)
+    view["month_display"] = reference.strftime("%B %Y")
+    view["week_number"] = first.isocalendar().week
     # Rewritten before anything reads a time off them, so the computed headline
     # below is on the family's clock too.
     events = as_shown(events_on(fetched, today)[:MAX_EVENTS], clock)

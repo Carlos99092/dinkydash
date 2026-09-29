@@ -82,6 +82,28 @@ class TestFreshBoard:
         assert view["chores"][0]["assigned_to"] in {"Mia", "Theo"}
         assert view["countdowns"][0]["title"] == "Christmas"
 
+    def test_builds_a_monday_to_sunday_visual_week(self):
+        data = payload("2026-09-03", [
+            event("2026-09-03", "08:20", "School run"),
+            event("2026-09-06", "15:45", "Swimming"),
+        ])
+        view = build_view(CONFIG, data, TODAY)
+        assert [day["iso"] for day in view["week_days"]] == [
+            "2026-08-31", "2026-09-01", "2026-09-02", "2026-09-03",
+            "2026-09-04", "2026-09-05", "2026-09-06",
+        ]
+        assert view["week_days"][3]["today"] is True
+        assert view["week_days"][3]["events"][0]["title"] == "School run"
+
+    def test_a_calendar_keeps_one_stable_colour(self):
+        data = payload("2026-09-03", [
+            event("2026-09-03", "08:20", "School run"),
+            event("2026-09-04", "15:45", "Swimming"),
+        ])
+        view = build_view(CONFIG, data, TODAY)
+        colours = [day["events"][0]["colour"] for day in view["week_days"] if day["events"]]
+        assert len(set(colours)) == 1
+
 
 class TestStaleBoard:
     """A payload from yesterday, still on the wall this morning."""
