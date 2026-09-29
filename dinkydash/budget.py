@@ -56,7 +56,10 @@ import logging
 import os
 from datetime import datetime, timezone
 
-from .claude_client import DEFAULT_MAX_TOKENS, DEFAULT_MODEL, GenerationError
+from .errors import GenerationError
+
+DEFAULT_MODEL = ""
+DEFAULT_MAX_TOKENS = 0
 
 log = logging.getLogger(__name__)
 

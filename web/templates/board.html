@@ -1,451 +1,116 @@
-{% macro event_row(event) %}
-<div class="event">
-    <div class="event-time{{ ' all-day' if event.all_day }}">{{ "All day" if event.all_day else event.time }}</div>
-    <div class="event-title">
-        {{ event.title }}
-        {% if event.location %}<span class="event-where">&mdash; {{ event.location }}</span>{% endif %}
-    </div>
-</div>
-{% endmacro -%}
 <!doctype html>
-<html lang="en" data-theme="{{ view.theme }}" data-clock="{{ view.clock }}">
+<html lang="es" data-theme="{{ view.theme }}" data-clock="{{ view.clock }}">
 <head>
     <meta charset="utf-8">
     <title>{{ view.family_name or "DinkyDash" }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
-    {# The page refreshes itself from the script at the foot of the body, which
-       keeps the last good dashboard on screen when a copy cannot be fetched.
-       With scripting off, this tag does what that script does, minus the
-       keeping: a reload that fails shows the browser's error page. #}
+    <meta name="referrer" content="no-referrer">
     <noscript><meta http-equiv="refresh" content="{{ view.reload_seconds }}"></noscript>
     <link rel="icon" href="{{ static_url('favicon.svg') }}" type="image/svg+xml">
-    <!-- On a tablet used as the panel, saving this to the home screen gives a
-         full-screen dashboard with no browser around it. -->
-    {# Which manifest depends on how this dashboard was reached: the signed-in view
-   has one behind the session, a wall panel needs the token-scoped one, or
-   "save to home screen" gets a redirect to /login instead of a name. #}
-<link rel="manifest" href="{{ manifest_url }}">
+    <link rel="manifest" href="{{ manifest_url }}">
     <link rel="apple-touch-icon" href="{{ static_url('apple-touch-icon.png') }}">
     <meta name="apple-mobile-web-app-title" content="{{ view.family_name or 'DinkyDash' }}">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="{{ '#17120f' if view.theme == 'dark' else '#ffffff' }}">
+    <meta name="theme-color" content="{{ '#171717' if view.theme == 'dark' else '#fdfdfd' }}">
     {% include "_fonts.html" %}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@300;600&amp;display=swap" rel="stylesheet">
     <style>
-        /* Light is the default palette; dark redefines the same tokens so every
-           rule below is written once. */
         :root {
-            --bg: #ffffff;
-            --box: #fff5ec;
-            --text: #2d2319;
-            --text-mid: #5c4a3a;
-            --text-muted: #786658;
-            --text-faint: #786658;
-            --accent: #b44314;
-            --chore-1-bg: rgba(232, 93, 36, 0.1);
-            --chore-1-fg: #b44314;
-            --chore-2-bg: rgba(124, 92, 191, 0.1);
-            --chore-2-fg: #6b4fa8;
-            --warn-bg: #fdf6e7;
-            --warn-fg: #b45309;
-            --stale-box: #faf6f1;
-            /* The agenda's time column. It does not shrink, so it is sized for
-               the widest time that clock can write, and today and tomorrow
-               share the left edge it sets. */
-            --time-column: 5.2rem;
+            --background: #fdfdfd;
+            --foreground: #141414;
+            --muted-foreground: #646464;
+            --muted-faint: rgba(100, 100, 100, 0.45);
+            --grid-line: rgba(20, 20, 20, 0.06);
+            --tick: rgba(20, 20, 20, 0.4);
+            --sage: #cadcd4;
+            --lilac: #cda3d3;
+            --apricot: #f2c9ae;
+            --sky: #bfd8e8;
+            --butter: #eee0a8;
+            --rose: #e8bdc4;
+            --font-sans: 'Inter', system-ui, sans-serif;
+            --font-display: 'Space Grotesk', system-ui, sans-serif;
+            --gutter: 5rem;
+            --right: 2rem;
         }
-
         [data-theme="dark"] {
-            --bg: #17120f;
-            --box: #241c17;
-            --text: #f6efe7;
-            --text-mid: #cbb9a7;
-            --text-muted: #9d8a78;
-            --text-faint: #9d8a78;
-            --accent: #ff7a45;
-            --chore-1-bg: rgba(255, 122, 69, 0.16);
-            --chore-1-fg: #ffa477;
-            --chore-2-bg: rgba(157, 125, 222, 0.2);
-            --chore-2-fg: #bda3ee;
-            --warn-bg: #3a2c14;
-            --warn-fg: #f2b968;
-            --stale-box: #221b16;
+            --background: #171717; --foreground: #f5f3f0;
+            --muted-foreground: #aaa39d; --muted-faint: rgba(220,215,210,.42);
+            --grid-line: rgba(255,255,255,.09); --tick: rgba(255,255,255,.4);
+            --sage:#49665a; --lilac:#704e75; --apricot:#795746;
+            --sky:#405f70; --butter:#71673d; --rose:#714c54;
         }
-
-        /* "12:00 pm" is three characters longer than "12:00", so the column it
-           has to fit is wider. A token rather than a second set of agenda
-           rules: only the width differs. */
-        [data-clock="12h"] { --time-column: 7.4rem; }
-
-        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-
-        /* Everything below is sized in rem off this one value, so the same
-           layout reads correctly on a 480px-tall Pi panel and a living-room TV. */
-        html { font-size: clamp(11px, 2.4vh, 26px); }
-
-        body {
-            font-family: 'Nunito', system-ui, -apple-system, sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body {
+            height: 100%; background: var(--background); color: var(--foreground);
+            font-family: var(--font-sans); -webkit-font-smoothing: antialiased;
             overflow: hidden;
-            -webkit-font-smoothing: antialiased;
         }
-
-        .board {
-            flex-grow: 1;
-            min-height: 0;
-            display: flex;
-            flex-direction: column;
-            gap: 1.4rem;
-            padding: 2.1rem 2.8rem;
-        }
-
-        .banner {
-            display: flex;
-            align-items: center;
-            gap: 0.7rem;
-            background: var(--warn-bg);
-            color: var(--warn-fg);
-            padding: 0.7rem 2.8rem;
-            font-size: 0.88rem;
-            font-weight: 700;
-            flex-shrink: 0;
-        }
-        .banner + .board { padding-top: 1.6rem; }
-        .banner svg { flex-shrink: 0; width: 1.05rem; height: 1.05rem; }
-
-        .head {
-            display: flex;
-            align-items: baseline;
-            justify-content: space-between;
-            gap: 1rem;
-            flex-shrink: 0;
-        }
-        .family {
-            font-size: 0.95rem;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.09em;
-            color: var(--accent);
-        }
-        .date { font-size: 1.1rem; font-weight: 700; color: var(--text-muted); }
-
-        .headline {
-            font-size: 2.7rem;
-            font-weight: 800;
-            line-height: 1.18;
-            letter-spacing: -0.02em;
-            flex-shrink: 0;
-        }
-
-        /* Wide and short (a TV, the Pi panel) has width to spare, so the agenda
-           and the side column sit next to each other. Tall screens (an iPad in
-           portrait, a phone) stack instead. */
-        .body { display: flex; flex-direction: column; gap: 1.4rem; flex-grow: 1; min-height: 0; }
-        @media (min-aspect-ratio: 3/2) {
-            /* The agenda is short on a quiet day and the side column is not, so
-               the note sits under the agenda rather than across the bottom —
-               otherwise the lower left quarter of the panel is dead space. */
-            .body {
-                display: grid;
-                grid-template-columns: 1fr 34%;
-                grid-template-rows: auto 1fr;
-                column-gap: 3rem;
-                row-gap: 1.4rem;
-            }
-            .agenda { grid-column: 1; grid-row: 1; }
-            .side { grid-column: 2; grid-row: 1 / span 2; }
-            .note { grid-column: 1; grid-row: 2; align-self: start; }
-        }
-
-        .label {
-            font-size: 0.78rem;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: var(--text-muted);
-            margin-bottom: 0.75rem;
-        }
-
-        .agenda { display: flex; flex-direction: column; }
-
-        .events { display: flex; flex-direction: column; gap: 0.6rem; }
-        .event { display: flex; gap: 1.1rem; align-items: baseline; }
-        .event-time {
-            font-size: 1.5rem;
-            font-weight: 800;
-            color: var(--accent);
-            width: var(--time-column);
-            flex-shrink: 0;
-        }
-        .event-time.all-day { font-size: 1rem; }
-        .event-title { font-size: 1.5rem; font-weight: 700; }
-        .event-where { color: var(--text-muted); font-weight: 600; }
-
-        /* Tomorrow only appears when today left room. It reads a step back from
-           today — smaller and muted — so a time is never taken for today's. The
-           time column keeps its full width, so both days share a left edge. */
-        .tomorrow { margin-top: 1.5rem; }
-        .tomorrow .events { gap: 0.45rem; }
-        .tomorrow .event-time { font-size: 1.15rem; color: var(--text-muted); }
-        .tomorrow .event-time.all-day { font-size: 0.82rem; }
-        .tomorrow .event-title { font-size: 1.15rem; color: var(--text-mid); }
-
-        .empty {
-            background: var(--box);
-            border-radius: 1rem;
-            padding: 1.5rem 1.8rem;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            gap: 0.4rem;
-            height: 100%;
-        }
-        .empty-head { font-size: 1.55rem; font-weight: 800; color: var(--text-mid); }
-        .empty-sub { font-size: 1rem; color: var(--text-muted); }
-
-        .side { display: flex; flex-direction: column; gap: 1.3rem; }
-
-        .chores { display: flex; flex-direction: column; align-items: flex-start; gap: 0.55rem; }
-        .chore {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.55rem;
-            padding: 0.42rem 1.1rem 0.42rem 0.55rem;
-            border-radius: 999px;
-            font-size: 1.1rem;
-            font-weight: 800;
-            background: var(--chore-1-bg);
-            color: var(--chore-1-fg);
-        }
-        .chore:nth-child(even) { background: var(--chore-2-bg); color: var(--chore-2-fg); }
-        .chore-emoji { font-size: 1.25rem; }
-
-        .countdowns { display: flex; flex-direction: column; gap: 0.5rem; }
-        .countdown {
-            display: flex;
-            align-items: center;
-            gap: 0.65rem;
-            font-size: 1.05rem;
-            color: var(--text-mid);
-        }
-        .countdown strong { color: var(--text); font-weight: 800; }
-        .countdown.today strong { color: var(--accent); }
-        .countdown-emoji { font-size: 1.2rem; }
-
-        .note {
-            background: var(--box);
-            border-radius: 0.9rem;
-            padding: 1rem 1.35rem;
-            font-size: 1.05rem;
-            line-height: 1.5;
-            color: var(--text-mid);
-            flex-shrink: 0;
-        }
-        .note.is-stale { background: var(--stale-box); color: var(--text-muted); }
-        .note-label {
-            font-size: 0.7rem;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: var(--text-faint);
-            margin-bottom: 0.45rem;
-        }
-
-        /* First run, before any generation has landed. */
-        .waiting {
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 1.4rem;
-            text-align: center;
-            padding: 2rem;
-        }
-        .waiting .family { font-size: 1.1rem; }
-        .waiting-head { font-size: 2.4rem; font-weight: 800; letter-spacing: -0.02em; }
-        .waiting-sub { font-size: 1.05rem; color: var(--text-mid); max-width: 32rem; line-height: 1.6; }
-        .bar { width: 20rem; height: 0.4rem; border-radius: 999px; background: var(--box); overflow: hidden; }
-        .bar span { display: block; width: 40%; height: 100%; border-radius: 999px; background: var(--accent); }
-
-        /* Shown by the script when a refresh fails; the last good dashboard
-           stays above it. In the flow rather than floating, so the fit
-           measurement makes room for it and it covers nothing — floated in a
-           corner it sat on the last countdown of a Pi panel. Amber, like the
-           stale banner: the same "something is off", at the other edge. */
-        .offline {
-            display: flex;
-            align-items: center;
-            gap: 0.7rem;
-            background: var(--warn-bg);
-            color: var(--warn-fg);
-            padding: 0.55rem 2.8rem;
-            font-size: 0.88rem;
-            font-weight: 700;
-            flex-shrink: 0;
-        }
-        .offline[hidden] { display: none; }
-        .offline::before {
-            content: "";
-            width: 0.55rem;
-            height: 0.55rem;
-            border-radius: 50%;
-            background: currentColor;
-            flex-shrink: 0;
-        }
+        body { display: flex; flex-direction: column; }
+        .calendar { display: flex; flex-direction: column; flex: 1; min-height: 0; padding-bottom: 1rem; }
+        .calendar-head { display: flex; align-items: center; gap: 1rem; padding: 1.25rem 2rem; flex: none; }
+        .month { font-family: var(--font-display); font-size: 1.875rem; font-weight: 600; letter-spacing: -.025em; }
+        .slash { font-family: var(--font-display); font-size: 1.875rem; font-weight: 300; color: var(--muted-foreground); }
+        .week { font-family: var(--font-display); font-size: 1.5rem; font-weight: 600; }
+        .week-controls { display: flex; align-items: center; gap: .375rem; margin-left: auto; }
+        .week-control { display: inline-flex; align-items: center; justify-content: center; min-width: 2.25rem; height: 2.25rem; padding: 0 .75rem; border: 1px solid var(--grid-line); border-radius: 999px; color: var(--foreground); text-decoration: none; font-size: .8125rem; font-weight: 500; background: transparent; }
+        .week-control:hover, .week-control:focus-visible { border-color: var(--tick); background: var(--grid-line); outline: none; }
+        .week-control.arrow { padding: 0; font-family: var(--font-display); font-size: 1.25rem; }
+        .week-control[aria-current="true"] { color: var(--muted-foreground); }
+        .week-head, .week-body { display: grid; grid-template-columns: var(--gutter) repeat(7, minmax(0, 1fr)); padding-right: var(--right); }
+        .day-head { display: flex; flex-direction: column; align-items: center; gap: .25rem; padding-bottom: .5rem; }
+        .day-num { font-family: var(--font-display); font-size: 3rem; line-height: 1; font-weight: 600; letter-spacing: -.025em; font-variant-numeric: tabular-nums; color: var(--muted-faint); }
+        .day-name { font-size: .875rem; text-transform: lowercase; color: var(--muted-foreground); }
+        .day-head.today .day-num, .day-head.today .day-name { color: var(--foreground); }
+        .day-head.today .day-name { font-weight: 500; }
+        .tick { margin-top: .75rem; width: 1px; height: .75rem; background: var(--tick); }
+        .week-body { position: relative; flex: 1; min-height: 0; padding-top: .75rem; }
+        .gutter, .day-column { position: relative; min-width: 0; }
+        .hour { position: absolute; right: .75rem; transform: translateY(-50%); white-space: nowrap; font-size: .875rem; font-variant-numeric: tabular-nums; color: var(--muted-foreground); }
+        .hour.first { transform: none; }
+        .grid-lines { position: absolute; top: .75rem; bottom: 0; left: var(--gutter); right: var(--right); pointer-events: none; }
+        .grid-line { position: absolute; left: 0; right: 0; border-top: 1px solid var(--grid-line); }
+        .event { position: absolute; z-index: 1; left: .25rem; right: .25rem; min-height: 1.5rem; display: flex; flex-direction: column; gap: .25rem; overflow: hidden; border-radius: .625rem; padding: .5rem .625rem; color: #141414; }
+        [data-theme="dark"] .event { color: #fff; }
+        .event.sage { background: var(--sage); } .event.lilac { background: var(--lilac); }
+        .event.apricot { background: var(--apricot); } .event.sky { background: var(--sky); }
+        .event.butter { background: var(--butter); } .event.rose { background: var(--rose); }
+        .event.short { justify-content: center; gap: .125rem; padding-top: .25rem; padding-bottom: .25rem; }
+        .event-title { font-size: .875rem; font-weight: 500; line-height: 1.25; }
+        .event.short .event-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .event-time { font-size: .875rem; font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; opacity: .7; }
+        .event-place { font-size: .75rem; opacity: .55; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .banner, .offline { display: flex; align-items: center; gap: .7rem; background: #fdf6e7; color: #a6530b; padding: .55rem 2rem; font-size: .78rem; font-weight: 700; flex: none; }
+        .offline[hidden] { display: none; } .offline::before { content: ""; width: .5rem; height: .5rem; border-radius: 50%; background: currentColor; }
+        .waiting { height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.2rem; text-align: center; padding: 2rem; }
+        .family { font-size: .85rem; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: #a75a35; }
+        .waiting-head { font-size: 2.25rem; font-weight: 800; } .waiting-sub { max-width: 34rem; color: var(--muted-foreground); line-height: 1.5; }
+        .bar { width: 20rem; height: .4rem; border-radius: 2rem; background: var(--grid-line); overflow: hidden; } .bar span { display: block; width: 40%; height: 100%; background: var(--sage); }
     </style>
 </head>
-{# What the refresh script reads. `data-version` is the page's own
-   (`assets.board_version`): a copy with a different one is a deploy, and gets
-   a real reload. `data-today` is only on a dashboard that is *for* a day — a
-   waiting screen has no date on it, and a frozen one says its dates are paused
-   — so only those escalate to "Showing Thursday's dashboard". #}
 <body data-reload="{{ view.reload_seconds }}" data-version="{{ board_version() }}"{% if view.state in ('ready', 'stale') %} data-today="{{ view.today }}"{% endif %} data-timezone="{{ view.timezone }}">
-
 {% if view.state == 'ended' %}
-<div class="waiting">
-    <div class="family">DinkyDash</div>
-    <div class="waiting-head">Your trial or subscription has ended</div>
-    <div class="waiting-sub">Dashboard updates are paused. Open your settings on a phone or computer to manage your account.</div>
-</div>
-
-{% elif view.state == 'waiting' and view.set_up %}
-<div class="waiting">
-    <div class="family">DinkyDash</div>
-    <div class="waiting-head">Writing {{ view.family_name or "your" }}{{ "'s" if view.family_name else "" }} first dashboard&hellip;</div>
-    <div class="bar"><span></span></div>
-    {# Keep the button name in sync with settings/home.html. #}
-    <div class="waiting-sub">
-        The next run writes it, usually within a few minutes, and this page fills
-        itself in. To have it now, open the settings page and press
-        &ldquo;Write first daily message&rdquo;.
-    </div>
-</div>
-
+<div class="waiting"><div class="family">DinkyDash</div><div class="waiting-head">Tu prueba o suscripción ha terminado</div><div class="waiting-sub">Las actualizaciones del panel están pausadas. Abre los ajustes desde un móvil u ordenador para gestionar tu cuenta.</div></div>
 {% elif view.state == 'waiting' %}
-{# Nothing is being written, and the screen must not say it is: the household
-   is still the invented one or the timezone is unset, and the settings home
-   is showing the checklist. The same words in both modes — a Pi running the
-   untouched example file is in exactly this state. #}
-<div class="waiting">
-    <div class="family">DinkyDash</div>
-    <div class="waiting-head">Nearly there</div>
-    <div class="waiting-sub">
-        Finish the set-up steps on the settings page, and this screen fills
-        itself in as soon as the first dashboard is written.
-    </div>
-</div>
-
+<div class="waiting"><div class="family">DinkyDash</div><div class="waiting-head">Conecta un calendario</div><div class="waiting-sub">Añade un enlace iCal en los ajustes para mostrar tus eventos.</div></div>
 {% else %}
-
-{% if view.state == 'frozen' %}
-<div class="banner">
-    Your trial or subscription has ended. Showing the last saved dashboard; its dates and turns are paused.
-</div>
-{% elif view.overdue %}
-{# The banner calls the note what its label calls it, so a reader can match the
-   two. An agenda with no brief behind it has no note below to point at. #}
-<div class="banner">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7.6v5"></path><path d="M12 16.2h.01"></path></svg>
-    {% if view.note %}
-    Today&rsquo;s note hasn&rsquo;t arrived, so you&rsquo;re seeing an older one below. Everything else is today&rsquo;s.
-    {% else %}
-    Today&rsquo;s note hasn&rsquo;t arrived. Everything else is today&rsquo;s.
-    {% endif %}
-</div>
+{% if view.state == 'frozen' %}<div class="banner">Tu prueba o suscripción ha terminado. Se muestra el último calendario guardado.</div>
 {% endif %}
-
-<div class="board">
-    <div class="head">
-        <div class="family">{{ view.family_name }}</div>
-        <div class="date">{{ view.date_display }}</div>
+<main class="calendar">
+    <header class="calendar-head"><h1 class="month">{{ view.month_display }}</h1><span class="slash" aria-hidden="true">/</span><p class="week">Semana {{ view.week_number }}</p><nav class="week-controls" aria-label="Cambiar semana"><a class="week-control arrow" href="?week={{ view.previous_week }}" aria-label="Semana anterior">&larr;</a><a class="week-control" href="?week={{ view.current_week }}" aria-current="{{ 'true' if view.is_current_week else 'false' }}">Hoy</a><a class="week-control arrow" href="?week={{ view.next_week }}" aria-label="Semana siguiente">&rarr;</a></nav></header>
+    <div class="week-head"><div aria-hidden="true"></div>{% for day in view.week_days %}<div class="day-head{{ ' today' if day.today }}"><span class="day-num">{{ day.number }}</span><span class="day-name">{{ day.name }}</span><span class="tick" aria-hidden="true"></span></div>{% endfor %}</div>
+    <div class="week-body">
+        <div class="gutter">{% for hour in view.calendar_hours %}<span class="hour{{ ' first' if loop.first }}" style="top:{{ loop.index0 * 10 }}%">{{ '%02d:00'|format(hour) }}</span>{% endfor %}</div>
+        <div class="grid-lines" aria-hidden="true">{% for hour in view.calendar_hours %}<div class="grid-line" style="top:{{ loop.index0 * 10 }}%"></div>{% endfor %}</div>
+        {% for day in view.week_days %}<section class="day-column" aria-label="{{ day.long_name }}">{% for event in day.events %}<article class="event {{ event.colour }}{{ ' short' if event.short }}" style="top:calc({{ event.top }}% + 2px);height:calc({{ event.height }}% - 4px)" title="{{ event.title }}"><h2 class="event-title">{{ event.title }}</h2><p class="event-time">{% if event.all_day %}Todo el día{% else %}{{ event.time }}{% if event.end_time %} &ndash; {{ event.end_time }}{% endif %}{% endif %}</p>{% if event.location %}<p class="event-place">{{ event.location }}</p>{% endif %}</article>{% endfor %}</section>{% endfor %}
     </div>
-
-    {% if view.headline %}
-    <div class="headline">{{ view.headline }}</div>
-    {% endif %}
-
-    <div class="body">
-        <div class="agenda">
-            {% if view.events %}
-            <div class="label">Today</div>
-            <div class="events">
-                {% for event in view.events %}{{ event_row(event) }}{% endfor %}
-            </div>
-            {% else %}
-            <div class="empty">
-                <div class="label">Today</div>
-                <div class="empty-head">The calendar is empty.</div>
-                <div class="empty-sub">Nothing between now and bedtime.</div>
-            </div>
-            {% endif %}
-
-            {% if view.tomorrow %}
-            <div class="tomorrow">
-                <div class="label">Tomorrow</div>
-                <div class="events">
-                    {% for event in view.tomorrow %}{{ event_row(event) }}{% endfor %}
-                </div>
-            </div>
-            {% endif %}
-        </div>
-
-        <div class="side">
-            {% if view.chores %}
-            <div>
-                <div class="label">Whose turn</div>
-                <div class="chores">
-                    {% for chore in view.chores %}
-                    <span class="chore">
-                        {% if chore.emoji %}<span class="chore-emoji">{{ chore.emoji }}</span>{% endif %}
-                        {{ chore.title }} &mdash; {{ chore.assigned_to }}
-                    </span>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
-
-            {% if view.countdowns %}
-            <div>
-                <div class="label">Coming up</div>
-                <div class="countdowns">
-                    {% for countdown in view.countdowns %}
-                    <div class="countdown{{ ' today' if countdown.days <= 3 }}">
-                        <span class="countdown-emoji">{{ countdown.emoji }}</span>
-                        <span>
-                            {% if countdown.days == 0 %}<strong>Today:</strong> {{ countdown.title }}
-                            {% elif countdown.days == 1 %}<strong>Tomorrow:</strong> {{ countdown.title }}
-                            {% else %}<strong>{{ countdown.days }} days</strong> until {{ countdown.title }}
-                            {% endif %}
-                        </span>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
-        </div>
-
-        {% if view.note %}
-        <div class="note{{ ' is-stale' if view.stale }}">
-            {% if view.stale %}<div class="note-label">{% if view.stale_days == 1 %}Yesterday&rsquo;s note{% else %}Older note{% endif %}</div>{% endif %}
-            {{ view.note }}
-        </div>
-        {% endif %}
-    </div>
-</div>
-
+</main>
 {% endif %}
-
-{# Filled in and shown by the script below when a copy of the page could not
-   be fetched; hidden again by the next copy that arrives, which brings its
-   own. Text only, no way out: it sits on a wall. #}
 <div class="offline" role="status" hidden></div>
-
 <script>
 /* Two jobs in one script, because the second has to call the first.
 
@@ -465,39 +130,9 @@
 (function () {
     var root = document.documentElement;
 
-    function naturalHeight() {
-        var body = document.body;   // read each time: a refresh replaces it
-        var h = body.style.height, o = body.style.overflow;
-        body.style.height = "auto";
-        body.style.overflow = "visible";
-        var n = body.scrollHeight;
-        body.style.height = h;
-        body.style.overflow = o;
-        return n;
-    }
-
-    function fit() {
-        // Let a phone viewer enlarge the dashboard without shrinking it back.
-        if (window.visualViewport && window.visualViewport.scale > 1) return;
-        var room = window.innerHeight;
-        var lo = 9, hi = Math.min(26, room / 24);   // same ceiling as the clamp
-        root.style.fontSize = hi + "px";
-        if (naturalHeight() > room) {
-            for (var i = 0; i < 14; i++) {          // ~0.001px, imperceptible cost
-                var mid = (lo + hi) / 2;
-                root.style.fontSize = mid + "px";
-                if (naturalHeight() > room) { hi = mid; } else { lo = mid; }
-            }
-            root.style.fontSize = lo + "px";
-        }
-    }
-
-    fit();
-    window.addEventListener("resize", fit);
-    /* Nunito arrives after the first paint and sets taller lines than the
-       fallback, so a size measured before it lands can overflow once it swaps
-       in — measured at 557px of content in a 480px panel. Re-fit when it does. */
-    if (document.fonts && document.fonts.ready) { document.fonts.ready.then(fit); }
+    // The supplied calendar design uses the browser's normal 16px root size.
+    // Do not auto-fit the whole document: that looked like a permanent zoom-out.
+    function fit() {}
 
     /* ---- the refresh ---------------------------------------------------- */
 
@@ -606,9 +241,9 @@
         var zone = body.getAttribute("data-timezone") || undefined;
         var today = body.getAttribute("data-today");
         var detail = (today && today !== dateIn(zone))
-            ? "Showing " + weekday(today) + "\u2019s dashboard"
-            : "Last updated " + clock(fetchedAt, zone);
-        badge.textContent = "Reconnecting \u00b7 " + detail;
+            ? "Mostrando el calendario del " + weekday(today)
+            : "Última actualización: " + clock(fetchedAt, zone);
+        badge.textContent = "Reconectando \u00b7 " + detail;
         badge.hidden = false;
         fit();   // it takes a line, and the dashboard above it has to give one up
     }
@@ -632,7 +267,7 @@
         return part("year") + "-" + part("month") + "-" + part("day");
     }
     function weekday(iso) {
-        return new Intl.DateTimeFormat("en-GB", {weekday: "long", timeZone: "UTC"}).format(new Date(iso + "T00:00:00Z"));
+        return new Intl.DateTimeFormat("es-ES", {weekday: "long", timeZone: "UTC"}).format(new Date(iso + "T00:00:00Z"));
     }
 
     later(reloadSeconds());

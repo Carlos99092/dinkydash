@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from .claude_client import GenerationError
+from .errors import GenerationError
 
 FROZEN_BOARD_PERIOD = timedelta(days=30)
 ENDED_MESSAGE = "Your trial or subscription has ended. Dashboard updates are paused."

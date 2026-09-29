@@ -1,12 +1,4 @@
-"""The settings UI.
-
-Every list section — people, pets, chores, dates, calendars — is the same
-shape: a list, an edit form, a delete. So they share one pair of routes driven
-by the SECTIONS table below rather than five near-identical copies.
-
-Writes go straight back to config.yaml through ruamel's round-trip mode, so the
-comments in the file survive being edited from a phone.
-"""
+"""Settings for calendar feeds and the wall display."""
 
 import io
 import json
@@ -21,17 +13,14 @@ from dinkydash import accounts
 from dinkydash import config as config_module
 from dinkydash import lifecycle, schedule, screens
 from dinkydash.calendars import FeedError, addresses, describe_feed, feed_label
-from dinkydash.claude_client import GenerationError
+from dinkydash.errors import GenerationError
 from dinkydash.clock import CLOCKS, DEFAULT_CLOCK, clock_of, format_time
-from dinkydash.context import compute_birthday_info, parse_monthday, upcoming_for
 from dinkydash.runner import refresh_calendars
-from dinkydash.runner import run as run_generation
 from web import CLOUD
 from web import feedback as feedback_module
 from web import manifest as manifest_module
 from web import ratelimit
 from web import setup as setup_module
-from web.emoji import one_emoji
 from web.family import (current_access, current_address, current_budget,
                         current_family_id, current_store, is_admin)
 from web import session as session_module
@@ -86,58 +75,6 @@ def _needs_a_session():
 # Each field is (name, label, kind, required, help). `kind` decides both the
 # input rendered and how the posted value is parsed back.
 SECTIONS = {
-    "people": {
-        "key": "people",
-        "title": "People",
-        "singular": "person",
-        "add_label": "Add a person",
-        "blurb": "Birthdays here become countdowns, and names here are who chores rotate between.",
-        "fields": [
-            ("name", "Name", "text", True, ""),
-            ("date_of_birth", "Date of birth", "date", True, "Used for ages and the birthday countdown."),
-            ("avatar_emoji", "Emoji", "emoji", False, ""),
-            ("avatar_color", "Colour", "color", False, ""),
-            ("interests", "Interests", "textarea", False,
-             "Informs the daily note — try “dinosaurs, drawing, swimming”."),
-        ],
-    },
-    "pets": {
-        "key": "pets",
-        "title": "Pets",
-        "singular": "pet",
-        "add_label": "Add a pet",
-        "blurb": "With a pet on file, some days the dashboard's note is about them.",
-        "fields": [
-            ("name", "Name", "text", True, ""),
-            ("type", "Kind of animal", "text", False, "Dog, cat, rabbit…"),
-            ("avatar_emoji", "Emoji", "emoji", False, ""),
-        ],
-    },
-    "recurring": {
-        "key": "recurring",
-        "title": "Chores",
-        "singular": "chore",
-        "add_label": "Add a chore",
-        "blurb": "Chores hand over at midnight and keep to the order you set. Nobody ticks anything off.",
-        "fields": [
-            ("title", "Chore", "text", True, ""),
-            ("emoji", "Emoji", "emoji", False, ""),
-            ("choices", "Whose turn, in order", "people", True,
-             "Rotates one person per day, by day of the year."),
-        ],
-    },
-    "special_dates": {
-        "key": "special_dates",
-        "title": "Special dates",
-        "singular": "date",
-        "add_label": "Add a date",
-        "blurb": "These come back every year, so there is no year to fill in. Birthdays are counted down already.",
-        "fields": [
-            ("title", "What is it", "text", True, ""),
-            ("emoji", "Emoji", "emoji", False, ""),
-            ("date", "Date", "monthday", True, "Day and month — it repeats every year."),
-        ],
-    },
     "calendars": {
         "key": "calendars",
         "title": "Calendars",
@@ -146,9 +83,8 @@ SECTIONS = {
         # **The disclosure where somebody is actually about to paste a calendar
         # link**, not only in a policy nobody opens. It says what leaves and
         # what does not, in the same breath as the field that causes it.
-        "blurb": "Every calendar you switch on is merged into one agenda. Titles and times are "
-                 "sent to Anthropic each morning so Claude can write the day's line; an event "
-                 "kept off the dashboard by a guest list is never stored and never sent.",
+        "blurb": "Every calendar you switch on is merged into the seven-day view. "
+                 "An event excluded by the guest-list filter is never stored.",
         "fields": [
             ("label", "Calendar name", "text", True,
              "A name to help you recognise this calendar in settings, such as “Family” or “School”. "
@@ -165,12 +101,7 @@ SECTIONS = {
     },
 }
 
-EMOJI_SUGGESTIONS = {
-    "people": ["🦖", "⚽", "🎨", "☕", "🚀", "🎸", "🐙", "📚"],
-    "pets": ["🐕", "🐈", "🐰", "🐠", "🐹", "🐦", "🐢", "🐴"],
-    "recurring": ["🍽", "🦴", "🗑", "🧺", "🛏", "🌱", "🧹", "📦"],
-    "special_dates": ["🎄", "☀️", "🚂", "🎃", "✈️", "🎆", "🥚", "🍂"],
-}
+EMOJI_SUGGESTIONS = {}
 
 MONTHS = ["January", "February", "March", "April", "May", "June", "July",
           "August", "September", "October", "November", "December"]
@@ -207,9 +138,6 @@ def parse_field(field, form, existing):
     name, _label, kind, required, _help = field
     if kind == "checkbox":
         return name in form
-    if kind == "people":
-        values = [v for v in form.getlist(name) if v]
-        return values
     if kind == "emails":
         # One text box, stored as a list: what the engine compares against.
         return addresses(form.get(name, ""))
@@ -239,8 +167,7 @@ def validate(section, item, today):
     for name, label, kind, required, _help in section["fields"]:
         value = item.get(name)
         if required and not value:
-            problems[name] = ("Choose at least one person." if kind == "people"
-                              else f"{label} is needed.")
+            problems[name] = f"{label} is needed."
         if kind == "date" and value:
             try:
                 dob = datetime.strptime(str(value), "%Y-%m-%d").date()
@@ -264,8 +191,6 @@ def validate(section, item, today):
                     problems[name] = (f"“{address}” is not an email address. Use the address "
                                       "on the invitation, like sam@example.com.")
                     break
-        if kind == "emoji" and value and not one_emoji(str(value)):
-            problems[name] = "Choose one emoji."
     return problems
 
 
@@ -301,18 +226,8 @@ def home():
 
     calendars = config.get("calendars") or []
     broken = [c for c in (payload or {}).get("calendar_statuses", []) if c.get("ok") is False]
-    jobs = [c for c in config.get("recurring") or [] if isinstance(c, dict)]
+    counts = {"calendars": len(calendars)}
 
-    counts = {
-        "people": len(config.get("people") or []),
-        "pets": len(config.get("pets") or []),
-        "recurring": len(jobs),
-        "special_dates": len(config.get("special_dates") or []),
-        "calendars": len(calendars),
-        # A job with nobody in its rotation is skipped on the dashboard. Say so on
-        # the row rather than counting it as rotating.
-        "jobs_unassigned": sum(1 for c in jobs if not c.get("choices")),
-    }
 
     # **Two personalities.** Until the family is set up and its first dashboard
     # written, the top of the page is the checklist in `web/setup.py` and the
@@ -424,28 +339,17 @@ def manifest():
 
 @bp.route("/generate", methods=["POST"])
 def generate_now():
-    """"Rewrite daily message" — a person asking for a dashboard, and paying for it.
-
-    **Charged against the same budget as the worker**, because it is the same
-    money out of the same account (DIN-43). Without that, a signed-in parent
-    holding this button down is an unbounded bill from one browser, and it was
-    the one path to Anthropic with no limit on it at all.
-
-    A refusal is an `OverBudget`, which is a `GenerationError`, so it arrives in
-    the branch below that already existed and the person is told plainly.
-    """
+    """Compatibility endpoint: refresh calendars without generating text."""
     config = current_config()
-    first = not (current_store().load_payload(config) or {}).get("generated_for_date")
     try:
-        payload = run_generation(config, current_store(), budget=current_budget())
+        refresh_calendars(config, current_store(), budget=current_budget())
     except GenerationError as exc:
         flash(str(exc), "error")
     except Exception as exc:  # a broken feed or an unreadable file shouldn't 500 the UI
         log.exception("Generation failed")
         flash(f"Generation failed: {exc}", "error")
     else:
-        what = "Your first daily message is written" if first else "Daily message rewritten"
-        flash(f"{what} — “{payload['headline']}”", "ok")
+        flash("Calendarios actualizados.", "ok")
     return redirect(url_for("settings.home"))
 
 
@@ -454,21 +358,7 @@ def section_list(section_name):
     section = section_or_404(section_name)
     config = current_config()
     items = config.get(section["key"]) or []
-    today = config_module.today_for(config)
-
     extras = {}
-    if section_name == "people":
-        extras["birthdays"] = [compute_birthday_info(p, today) for p in items]
-    if section_name == "recurring":
-        extras["turns"] = [upcoming_for(c, today, days=1) for c in items]
-    if section_name == "special_dates":
-        extras["dates"] = []
-        for item in items:
-            try:
-                display = parse_monthday(item.get("date")).strftime("%-d %B")
-            except ValueError:
-                display = "Check this date — it is not shown on the dashboard"
-            extras["dates"].append(display)
 
     return render_template(
         "settings/list.html", section=section, section_name=section_name,
@@ -502,27 +392,12 @@ def section_edit(section_name, item_id):
         for field in section["fields"]:
             submitted[field[0]] = parse_field(field, request.form, item)
 
-        if section_name == "recurring" and (request.form.get("move_choice")
-                                            or request.form.get("action") == "update_choices"):
-            # No-JavaScript ordering edits the submitted draft, never storage.
-            direction, _, person = request.form.get("move_choice", "").partition(":")
-            choices = submitted["choices"]
-            if person in choices and direction in ("up", "down"):
-                position = choices.index(person)
-                target = position + (-1 if direction == "up" else 1)
-                if 0 <= target < len(choices):
-                    choices[position], choices[target] = choices[target], choices[position]
-            item = submitted
-        elif request.form.get("action") == "check":
+        if request.form.get("action") == "check":
             checked = check_feed(submitted, config)
             item = submitted
         else:
             problems = validate(section, submitted, today)
             if not problems:
-                # The mark `starter_config` puts on an invented person or pet.
-                # Saving the form is the touch that makes the item theirs,
-                # whatever they left in the boxes.
-                submitted.pop(config_module.INVENTED, None)
                 if is_new:
                     submitted["id"] = config_module.new_id(
                         i.get("id") for i in items if isinstance(i, dict)
@@ -531,24 +406,16 @@ def section_edit(section_name, item_id):
                 else:
                     submitted["id"] = item_id
                     items[index] = submitted
-                    if section_name == "people":
-                        follow_a_rename(config, item.get("name"), submitted.get("name"))
                 # Pressing Save explicitly refreshes this calendar even when
                 # the values are unchanged. The store also detects changed or
                 # removed sources and clears them in the same operation.
                 save(config, invalidate_calendars=(feed_label(submitted),)
                      if section_name == "calendars" else ())
-                if section_name == "calendars":
-                    flash(f"Saved {feed_label(submitted)}. The dashboard picks up the change at "
-                          f"the next refresh — press Refresh calendars if you don't want to wait.",
-                          "ok")
-                else:
-                    flash(f"Saved {submitted.get('name') or submitted.get('title') or 'it'}.", "ok")
+                flash(f"Saved {feed_label(submitted)}. The calendar picks up the change at "
+                      f"the next refresh.", "ok")
                 return redirect(url_for("settings.section_list", section_name=section_name))
             item = submitted
 
-    selected = item.get("choices") or []
-    participants = list(dict.fromkeys([*selected, *config_module.people_names(config)]))
     return render_template(
         "settings/edit.html", section=section, section_name=section_name,
         item=item, item_id=item_id, is_new=is_new, problems=problems,
@@ -558,7 +425,7 @@ def section_edit(section_name, item_id):
         # The picker's dialog is drawn once, after the form, and only where there is an
         # emoji to choose. Each section has at most one.
         emoji_field=next((f[0] for f in section["fields"] if f[2] == "emoji"), None),
-        colors=config_module.AVATAR_COLORS, people=participants,
+        colors=(),
         draft_changed=any((item.get(name) or None) != (saved_item.get(name) or None)
                           for name, *_ in section["fields"]),
         removal=removal_prompt(config, section, saved_item) if not is_new else None,
@@ -584,22 +451,6 @@ def suggested_calendar_label(config):
     while f"calendar {number}" in taken:
         number += 1
     return f"Calendar {number}"
-
-
-def follow_a_rename(config, old, new):
-    """A person renamed on the form keeps their turns in every chore.
-
-    Chores hold names as plain text, so without this the natural way to
-    replace the invented Mia — open her, type your own child's name, save —
-    leaves "Set the table" rotating between Mia and Theo for ever, and the
-    dashboard announcing the turn of somebody who is not there. Skipped when
-    another person still has the old name: then it was not a rename.
-    """
-    if not old or not new or old == new:
-        return
-    if old in config_module.people_names(config):
-        return
-    config_module.rename_in_chores(config, old, new)
 
 
 def check_feed(item, config):
@@ -665,18 +516,10 @@ def check_feed(item, config):
 
 
 def removal_prompt(config, section, item):
-    """Name what will be removed, including the effects on chore assignments."""
-    name = item.get("name") or item.get("title") or item.get("label") or section["singular"]
-    message = "This cannot be undone."
-    if section["key"] == "people" and config_module.people_names(config).count(name) == 1:
-        message += f" {name} will also be removed from chore rotations."
-        unassigned = [c["title"] for c in config.get("recurring") or []
-                      if c.get("choices") and all(p == name for p in c["choices"])]
-        if unassigned:
-            message += " These chores will have nobody assigned: " + ", ".join(unassigned) + "."
-    elif section["key"] == "calendars":
-        message += " Stored events from this calendar will also be removed."
-    return {"title": f"Remove {name}?", "message": message,
+    """Name the calendar and the stored events that will be removed."""
+    name = item.get("label") or section["singular"]
+    return {"title": f"Remove {name}?",
+            "message": "Stored events from this calendar will also be removed.",
             "confirm": f"Remove {name}", "cancel": f"Keep {name}"}
 
 
@@ -699,12 +542,6 @@ def section_delete(section_name, item_id):
                               url_for("settings.section_edit", section_name=section_name,
                                       item_id=item_id))
     items.pop(index)
-    if section_name == "people":
-        # Deleting Mia means Mia is gone from the dashboard, turns included — not
-        # a chore still announcing her day. Unless somebody else has the name.
-        gone = removed.get("name")
-        if gone and gone not in config_module.people_names(config):
-            config_module.drop_from_chores(config, gone)
     save(config)
     flash(f"Removed {removed.get('name') or removed.get('title') or removed.get('label') or 'it'}.", "ok")
     return redirect(url_for("settings.section_list", section_name=section_name))
@@ -804,72 +641,42 @@ def cadence_choices(current):
 
 
 def cadence_values(config):
-    """The two keys as the form wants them — an int and an "HH:MM" string.
-
-    `brief_time` stays `HH:MM` whatever clock the family reads: it is the value
-    of an `<input type="time">`, which takes that shape on the wire and draws it
-    in the reader's own locale. The prose below is the part that follows the
-    setting.
-    """
-    return {
-        "refresh_minutes": int(schedule.refresh_interval(config).total_seconds() // 60),
-        "brief_time": schedule.brief_time(config).strftime("%H:%M"),
-    }
+    return {"refresh_minutes": int(schedule.refresh_interval(config).total_seconds() // 60)}
 
 
 def cadence_summary(config):
-    """The one line the settings home shows: "Calendars every hour · daily message at 06:00"."""
-    values = cadence_values(config)
-    cadence = describe_minutes(values["refresh_minutes"])
-    written = format_time(schedule.brief_time(config), clock_of(config))
-    return (f"Calendars {cadence[:1].lower()}{cadence[1:]} · "
-            f"daily message at {written}")
+    return "Calendarios " + describe_minutes(cadence_values(config)["refresh_minutes"]).lower()
 
 
 @bp.route("/refresh", methods=["GET", "POST"])
 def refresh():
-    """The two cadences: how often the calendars are fetched, and when the brief is written."""
+    """How often calendar feeds are fetched."""
     config = current_config()
     stored = cadence_values(config)
     choices = cadence_choices(stored["refresh_minutes"])
     allowed = {m for m, _ in choices}
     values, problems = stored, []
-
     if request.method == "POST":
-        # Show back what was submitted, not what is still on disk.
-        values = {
-            "refresh_minutes": request.form.get("refresh_minutes", "").strip(),
-            "brief_time": request.form.get("brief_time", "").strip(),
-        }
-        minutes, brief = None, None
+        raw = request.form.get("refresh_minutes", "").strip()
+        values = {"refresh_minutes": raw}
         try:
-            minutes = int(values["refresh_minutes"])
+            minutes = int(raw)
         except ValueError:
-            pass
+            minutes = None
         if minutes not in allowed:
-            problems.append("Pick one of the calendar intervals offered.")
-        try:
-            # <input type="time"> posts "HH:MM", but "HH:MM:SS" with a step set.
-            brief = time.fromisoformat(values["brief_time"]).strftime("%H:%M")
-        except ValueError:
-            problems.append("The time the daily message is written should look like 06:00.")
-
-        if not problems:
+            problems.append("Elige uno de los intervalos disponibles.")
+        else:
             config["refresh_minutes"] = minutes
-            config["brief_time"] = config_module.quoted(brief)
             save(config)
-            flash("Saved.", "ok")
+            flash("Guardado.", "ok")
             return redirect(url_for("settings.refresh"))
-
-    return render_template(
-        "settings/refresh.html", config=config, values=values,
-        problems=problems, choices=choices,
-    )
+    return render_template("settings/refresh.html", config=config, values=values,
+                           problems=problems, choices=choices)
 
 
 @bp.route("/refresh-now", methods=["POST"])
 def refresh_now():
-    """Fetch the calendars and nothing else — the free half of "Rewrite daily message"."""
+    """Fetch the calendars immediately."""
     config = current_config()
     try:
         payload = refresh_calendars(config, current_store(), budget=current_budget())
@@ -1039,28 +846,16 @@ def delete_account():
 
 @bp.route("/system", methods=["GET", "POST"])
 def system():
-    """The family's name, clock and whereabouts — and, self-hosted, the model.
-
-    **Which model runs is not a hosted family's setting**, because it is not
-    their API key. Self-hosted, the key is theirs and so is the bill, so the
-    model is a free text box with its price beside it. Hosted, the box would
-    offer a choice the platform does not honour. Cloud mode hides and ignores
-    the field here; the shared generation budget also overrides saved model
-    and token settings before either hosted caller reaches the API.
-    """
+    """Calendar name, timezone and clock format."""
     config = current_config()
     if request.method == "POST":
         config["family_name"] = request.form.get("family_name", "").strip()
-        config["location"] = request.form.get("location", "").strip()
         timezone = request.form.get("timezone", "").strip()
         if timezone:
             config["timezone"] = timezone
         clock = request.form.get("clock", "").strip()
         if clock in CLOCKS:
             config["clock"] = clock
-        model = request.form.get("claude_model", "").strip()
-        if model and current_app.config["MODE"] != CLOUD:
-            config["claude_model"] = model
         save(config)
         flash("Saved.", "ok")
         return redirect(url_for("settings.system"))

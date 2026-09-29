@@ -57,6 +57,16 @@ class TestParsing:
         assert event["all_day"] is False
         assert event["location"] == "The gate"
 
+    def test_keeps_the_finish_for_the_visual_calendar(self):
+        feed = ical(
+            "BEGIN:VEVENT\r\nUID:1\r\n"
+            "DTSTART;TZID=Europe/Berlin:20260903T082000\r\n"
+            "DTEND;TZID=Europe/Berlin:20260903T094500\r\n"
+            "SUMMARY:School meeting\r\nEND:VEVENT\r\n"
+        )
+        event = parse_feed(feed, date(2026, 9, 3), date(2026, 9, 4), BERLIN)[0]
+        assert event["end"] == "2026-09-03T09:45:00+02:00"
+
     def test_reads_an_all_day_event(self):
         feed = ical(all_day("1", "20260903", "Inset day"))
         events = parse_feed(feed, date(2026, 9, 3), date(2026, 9, 4), BERLIN)
